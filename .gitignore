@@ -194,7 +194,8 @@ Glove.png
 GoogleNEWS.png
 Pipfile
 Pipfile.lock
-README.md
 Semi-Supervised Learning With Spectral Graph Convolutions - Code.zip
 Val_set_Glove.png
 requirements.txt
+/logs/
+/.vscode/
