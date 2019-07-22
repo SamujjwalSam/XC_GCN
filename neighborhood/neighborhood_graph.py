@@ -4,7 +4,7 @@
 __synopsis__    : Generates neighborhood graph based on label co-occurrence between samples.
 
 __description__ : Generates neighborhood graph based on label co-occurrence between samples.
-__project__     : XC_GCN
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
@@ -19,7 +19,6 @@ __variables__   :
 __methods__     :
 """
 
-import math
 import numpy as np
 import networkx as nx
 from os.path import join,exists
@@ -91,8 +90,7 @@ class Neighborhood_Graph:
         return inverted_dict
 
     def prepare_label_graph(self,cat2docs_map=None):
-        """
-        Generates a dict of categories mapped to document and then creates the label neighborhood graph.
+        """ Generates a dict of categories mapped to document and then creates the label neighborhood graph.
 
         :param cat_texts:
         :param cat2docs_map:
@@ -107,11 +105,10 @@ class Neighborhood_Graph:
         return G_cats
 
     def load_doc_neighborhood_graph(self, graph_path=None):
-        """
-        Loads the graph file if found else creates neighborhood graph.
+        """ Loads the graph file if found else creates neighborhood graph.
 
         :param graph_path: Full path to the graphml file.
-        :return:
+        :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
         if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,self.dataset_name + "_G" + ".graphml")
         if exists(graph_path):
@@ -121,16 +118,15 @@ class Neighborhood_Graph:
             G_docs = self.create_neighborhood_graph()
             logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
             nx.write_graphml(G_docs,graph_path)
-        A_docs = nx.adjacency_matrix(G_docs)
+        Adj_docs = nx.adjacency_matrix(G_docs)
         G_docs_stats = self.graph_stats(G_docs)
-        File_Util.save_json(G_docs_stats,filename=self.dataset_name+"_stats_",file_path=join(self.graph_dir,self.dataset_name),
-                            overwrite=True)
-        return G_docs,A_docs,G_docs_stats
+        File_Util.save_json(G_docs_stats,filename=self.dataset_name+"_stats_",overwrite=True,
+                            file_path=join(self.graph_dir,self.dataset_name))
+        return G_docs,Adj_docs,G_docs_stats
 
     @staticmethod
     def graph_stats(G):
-        """
-        Generates and returns graph related statistics.
+        """ Generates and returns graph related statistics.
 
         :param G: Graph in Netwokx format.
         :return: dict
@@ -169,10 +165,7 @@ class Neighborhood_Graph:
         return G_stats
 
     def find_single_labels(self):
-        """
-        Finds the number of samples with only single label.
-
-        """
+        """ Finds the number of samples with only single label. """
         single_labels = []
         for i,t in enumerate(self.classes):
             if len(t) == 1:
@@ -214,7 +207,6 @@ class Neighborhood_Graph:
         # V: list of all categories (nodes).
         # E: dict of edge tuple(node_1,node_2) -> weight, eg. {(1, 4): 1, (2, 7): 3}.
         """
-
         # get a dict of label id -> textual_label
         label_dict = get_label_dict(label_filepath)
 
@@ -313,9 +305,9 @@ def main():
     """
     cls = Neighborhood_Graph()
     # cls.find_single_labels()
-    G_docs,A_docs,G_docs_stats = cls.load_doc_neighborhood_graph()
+    G_docs,Adj_docs,G_docs_stats = cls.load_doc_neighborhood_graph()
     cls.plot_occurance(list(G_docs_stats["degree_sequence"]))
-    logger.info("Adjacency Matrix: [{0}]".format(A_docs.todense().shape))
+    logger.info("Adjacency Matrix: [{0}]".format(Adj_docs.todense().shape))
 
     return
 

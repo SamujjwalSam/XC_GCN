@@ -1,6 +1,6 @@
-# End-to-End Deep Learning Framework for Extreme Classification using Graph Convolutional Networks (XC_GCN)[![Build Status](https://travis-ci.org/vishwakftw/extreme-classification.svg?branch=master)](https://travis-ci.org/vishwakftw/extreme-classification)
+# End-to-End Deep Learning Framework for Extreme Classification using Graph Convolutional Networks (XCGCN)[![Build Status](https://travis-ci.org/vishwakftw/extreme-classification.svg?branch=master)](https://travis-ci.org/vishwakftw/extreme-classification)
 
-`MNXC` is a Python module designed for Extreme Multi-Label Classification tasks using Matching Networks.
+`XCGCN` is a Python module designed for Extreme Multi-Label Classification tasks using Matching Networks.
 This project also includes scripts for training and testing on datasets (Wiki-31k, Amazon-13k, Amazon-14k) using this module.
 
 ## Setup
@@ -19,7 +19,7 @@ This project also includes scripts for training and testing on datasets (Wiki-31
      ```
      
 <!---
-### Installing `MNXC`
+### Installing `XCGCN`
 
 - Clone the repository.
   ```bash
@@ -34,7 +34,7 @@ This project also includes scripts for training and testing on datasets (Wiki-31
 
 - To test if your installation is successful, try running the command:
   ```bash
-  $ python -c "import MNXC"
+  $ python -c "import XCGCN"
   ```
 --->
 

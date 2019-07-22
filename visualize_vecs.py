@@ -4,7 +4,7 @@
 __synopsis__    : Visualize vectors in 2D using tsne.
 
 __description__ :
-__project__     : XC_GCN
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ":  "
 __date__        : "26/06/19"

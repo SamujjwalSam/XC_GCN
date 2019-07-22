@@ -1,5 +1,23 @@
-#!/usr/bin/env python
-# coding: utf-8
+# coding=utf-8
+# !/usr/bin/python3.6 ## Please use python 3.6
+"""
+__synopsis__    : Spectral Graph Convolutional Layer
+
+__description__ : Spectral Graph Convolutional Layer
+__project__     : XCGCN
+__author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+__version__     : ": 0.1 "
+__date__        : "08-11-2018"
+__copyright__   : "Copyright (c) 2019"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
+
+__classes__     : GCN_Spectral
+
+__variables__   :
+
+__methods__     :
+"""
 
 import numpy as np
 from torch.autograd import Variable
@@ -104,11 +122,10 @@ class GCN_Spectral(nn.Module):
         D_inv = torch.diag(D_inv)
         A_hat = D_inv * A_hat * D_inv
         self.A_hat = torch.tensor(A_hat).type(torch.DoubleTensor)
-        # self.A_hat = Parameter(torch.tensor(A_hat).type(torch.DoubleTensor))
 
-        self.W = Parameter(torch.rand(self.in_units,self.out_units).type(torch.DoubleTensor))
+        self.W = Parameter(torch.rand(self.in_units,self.out_units).type(torch.FloatTensor))
         if bias:
-            self.bias = Parameter(torch.DoubleTensor(self.out_units))
+            self.bias = Parameter(torch.FloatTensor(self.out_units))
         else:
             self.register_parameter('bias',None)
 
@@ -141,10 +158,12 @@ class GCN_Spectral(nn.Module):
         else:
             return output
 
-    # def extra_repr(self):
-    #     return 'in_features={}, out_features={}, bias={}'.format(
-    #         self.in_features, self.out_features, self.bias is not None
-    #     )
+    def __repr__(self):
+        return self.__class__.__name__ + ' (' + str(self.in_units) + ' -> ' + str(self.out_units) + ')'
+
+    def extra_repr(self):
+        return self.__class__.__name__ + 'in_units={}, out_units={}, bias={}'.format(self.in_units, self.out_units,
+                                                                                     self.bias is not None)
 
 
 class LogisticRegressor(nn.Module):
