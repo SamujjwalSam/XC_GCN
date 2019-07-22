@@ -54,7 +54,7 @@ class Neighborhood_Graph:
         self.categories = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_categories"))
         self.cat_id2text_map = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_cat_id2text_map"))
 
-    def create_neighborhood_graph(self,doc2cats_map: dict = None, min_common=1):
+    def create_neighborhood_graph(self,doc2cats_map: dict = None, min_common=config["graph"]["min_common"]):
         """ Generates the neighborhood graph (of type category or document) as key
         and common items as values.
 
@@ -104,9 +104,10 @@ class Neighborhood_Graph:
         nx.relabel_nodes(G_cats,self.cat_id2text_map,copy=False)
         return G_cats
 
-    def load_doc_neighborhood_graph(self, graph_path=None):
+    def load_doc_neighborhood_graph(self, graph_path=None, get_stats=config["graph"]["stats"]):
         """ Loads the graph file if found else creates neighborhood graph.
 
+        :param get_stats:
         :param graph_path: Full path to the graphml file.
         :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
@@ -119,10 +120,12 @@ class Neighborhood_Graph:
             logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
             nx.write_graphml(G_docs,graph_path)
         Adj_docs = nx.adjacency_matrix(G_docs)
-        G_docs_stats = self.graph_stats(G_docs)
-        File_Util.save_json(G_docs_stats,filename=self.dataset_name+"_stats_",overwrite=True,
-                            file_path=join(self.graph_dir,self.dataset_name))
-        return G_docs,Adj_docs,G_docs_stats
+        if get_stats:
+            G_docs_stats = self.graph_stats(G_docs)
+            File_Util.save_json(G_docs_stats,filename=self.dataset_name+"_stats_",overwrite=True,
+                                file_path=join(self.graph_dir,self.dataset_name))
+            return G_docs,Adj_docs,G_docs_stats
+        return G_docs,Adj_docs
 
     @staticmethod
     def graph_stats(G):
@@ -158,7 +161,7 @@ class Neighborhood_Graph:
             G_stats["periphery"] = nx.periphery(G)
             logger.debug("periphery: [{0}]".format(G_stats["periphery"]))
         else:
-            logger.info("The graph in not connected.")
+            logger.warning("The graph in not connected.")
             G_comps = nx.connected_components(G)
             logger.debug([len(c) for c in sorted(G_comps, key=len, reverse=True)])
 
@@ -176,7 +179,7 @@ class Neighborhood_Graph:
         return len(single_labels)
 
     @staticmethod
-    def plot_occurance(E,plot_name='co-occurance_graph.jpg',clear=True,log=False):
+    def plot_occurance(E,plot_name=config["graph"]["plot_name"],clear=True,log=False):
         """
 
         :param E:
@@ -193,10 +196,12 @@ class Neighborhood_Graph:
         plt.ylabel("Category co-occurance")
         plt.title("Documents degree distribution (sorted)")
         plt.savefig(plot_name)
+        plt.show()
         if clear:
             plt.cla()
 
-    def get_subgraph(self,V,E,label_filepath,dataset_name,level=1,subgraph_count=5,ignore_deg=None,root_node=None):
+    def get_subgraph(self,V,E,dataset_name,level=config["graph"]["level"],root_node=config["graph"]["root_node"],
+                     subgraph_count=config["graph"]["subgraph_count"],ignore_deg=config["graph"]["ignore_deg"]):
         """ Generates a subgraph of [level] hops starting from [root_node] node.
 
         # total_points: total number of samples.
@@ -207,9 +212,6 @@ class Neighborhood_Graph:
         # V: list of all categories (nodes).
         # E: dict of edge tuple(node_1,node_2) -> weight, eg. {(1, 4): 1, (2, 7): 3}.
         """
-        # get a dict of label id -> textual_label
-        label_dict = get_label_dict(label_filepath)
-
         # build a unweighted graph of all edges
         g = nx.Graph()
         g.add_edges_from(E.keys())
@@ -271,7 +273,7 @@ class Neighborhood_Graph:
                     continue
 
             # relabel the nodes to reflect textual label
-            nx.relabel_nodes(sub_g,mapping,copy=False)
+            nx.relabel_nodes(sub_g,self.cat_id2text_map,copy=False)
             logger.debug('sub_g: [{0}]'.format(sub_g))
 
             label_info_file.write(str('\n'))

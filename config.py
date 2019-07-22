@@ -56,7 +56,6 @@ configuration = {
         "dropout": 0.1,
         "dropout_external": 0.0,
         "clipnorm": 1.0,
-        "data_slice": 5120,
 
         "g_encoder": "cnn",
         "use_cuda": False,
@@ -89,7 +88,18 @@ configuration = {
         "batch_size": 2,
         "categories_per_batch": 2,
         "supports_per_category": 2,
-        "targets_per_category": 2
+        "targets_per_category": 2,
+        "data_slice": 5120,
+    },
+
+    "graph": {
+        "stats": True,
+        "min_common": 1,
+        "plot_name": "label_vecs.jpg",
+        "level": 1,
+        "subgraph_count": 5,
+        "ignore_deg": None,
+        "root_node": None
     },
 
     "prep_vecs": {
@@ -101,7 +111,8 @@ configuration = {
         "num_chunks": 10,
         "vectorizer": "doc2vec",
         "sample_repeat_mode": "append",
-        "input_size": 7,
+        "input_size": 300,
+        "sim_words": 5,
         "tfidf_avg": False,
         "idf" : True
     },

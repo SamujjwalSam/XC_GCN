@@ -12,7 +12,7 @@ __copyright__   : "Copyright (c) 2019"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
                   directory of this source tree.
 
-__classes__     : Clean_Text
+__classes__     : Text_Process
 
 __variables__   :
 
@@ -20,12 +20,15 @@ __methods__     :
 """
 
 import re,spacy
-# from spacy.lang.en.stop_words import STOP_WORDS
+import numpy as np
+from spacy.lang.en.stop_words import STOP_WORDS
 import unicodedata
 from unidecode import unidecode
 from os.path import join,isfile
 from collections import OrderedDict
+
 from logger import logger
+from text_process.text_encoder import Text_Encoder
 from file_utils import File_Util
 from config import configuration as config
 from config import platform as plat
@@ -43,15 +46,64 @@ wiki_patterns = ("It has been suggested that Incremental reading be merged into 
                  'This article includes a list of references or external links, but its sources remain unclear because it lacks inline citations. Please improve this article by introducing more precise citations where appropriate.')
 
 
-class Clean_Text(object):
+class Text_Process(object):
     """ Class related to cleaning the input texts along with text labels. """
 
     def __init__(self,dataset_name: str = config["data"]["dataset_name"],
                  data_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """ Initializes the parts of cleaning to be done. """
-        super(Clean_Text,self).__init__()
+        super(Text_Process,self).__init__()
         self.dataset_name = dataset_name
         self.dataset_dir = join(data_dir,self.dataset_name)
+
+    def process_categories(self,labels: dict, remove_stopwords=True):
+        """ Process categories like cleaning and tokenization.
+
+        :param remove_stopwords:
+        :param labels:
+        :return:
+        """
+        labels_processed = self.clean_sentences_dict(labels,specials="""?!_-@<>#,.*?'{}[]()$%^~`:;"/\\:|""")
+        labels_tokens = []
+        for lbl_txt in labels_processed.values():
+            tokens = self.tokenizer_spacy(lbl_txt)
+            if remove_stopwords:
+                tokens = [token for token in tokens if token not in STOP_WORDS]
+            labels_tokens.append(tokens)
+
+        return labels_tokens
+
+    @staticmethod
+    def gen_cat_vecs(labels_tokens: list,model=None):
+        """ Generate label vectos using pretrained [model].
+
+        :param model:
+        :param labels_tokens:
+        :return:
+        """
+        if model is None:
+            text_encoder = Text_Encoder()
+            model = text_encoder.load_word2vec()
+
+        lbl_vecs = []
+        oov_tokens = {}
+        for lbl in labels_tokens:
+            lbl_vec = np.zeros_like((1,300))
+            for token in lbl:
+                try:
+                    lbl_vec = model.get_vector(token)
+                except KeyError:
+                    try:
+                        lbl_vec = oov_tokens[token]
+                    except KeyError:
+                        # logger.debug("Vector for token [{}] not found.".format(token))
+                        # logger.debug("Error: [{}]".format(e))
+                        lbl_vec = np.random.uniform(-0.5,0.5,300)
+                        oov_tokens[token] = lbl_vec
+                np.add(lbl_vec,lbl_vec)
+            lbl_vecs.append(np.divide(lbl_vec,len(lbl)))
+
+        return np.stack(lbl_vecs)
 
     @staticmethod
     def dedup_data(Y: dict,dup_cat_map: dict):
@@ -96,10 +148,9 @@ class Clean_Text(object):
         trans_table = str.maketrans(trans_dict)
         return trans_table
 
-    def clean_categories(self,categories: dict,
-                         specials=""" ? ! _ - @ < > # , . * ? ' { } [ ] ( ) $ % ^ ~ ` : ; " / \\ : |""",
-                         replace=' '):
-        """Cleans categories dict by removing any symbols and lower-casing and returns set of cleaned categories
+    def clean_categories(self,categories: dict,replace=' ',
+                         specials=""" ? ! _ - @ < > # , . * ? ' { } [ ] ( ) $ % ^ ~ ` : ; " / \\ : |"""):
+        """ Cleans categories dict by removing any symbols and lower-casing and returns set of cleaned categories
         and the dict of duplicate categories.
 
         :param: categories: dict of cat:id
@@ -121,7 +172,7 @@ class Clean_Text(object):
                 category_cleaned_dict[cat_clean] = cat_id
         return category_cleaned_dict,dup_cat_map,dup_cat_text_map
 
-    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace=''):
+    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace='', remove_stopwords=True):
         """Cleans sentences dict and returns dict of cleaned sentences.
 
         :param: sentences: dict of idx:label
@@ -406,7 +457,7 @@ class Clean_Text(object):
     def spacy_sents2string(doc: list):
         """ Converts a list of spacy span to concatenated string.
 
-        We usually get this type from clean_text.py file.
+        We usually get this type from text_process.py file.
         :param doc:
         """
         sents = str()
@@ -643,7 +694,7 @@ class Clean_Text(object):
 
             stopword_list = stopwords.words('english') + ['rt','via','& amp',
                                                           '&amp','amp','mr']
-            tweet = [term for term in tweet if term not in stopword_list]
+            tweet = [term for term in tweet if term not in STOP_WORDS]
 
         if punct:
             from string import punctuation
@@ -669,7 +720,7 @@ def clean_wiki2(doc: list,num_lines: int = 6) -> str:
     """ Cleans the wikipedia documents.
 
     """
-    cls = Clean_Text()
+    cls = Text_Process()
     doc = doc[num_lines:]
     doc = list(filter(None,doc))
     doc = cls.remove_wiki_contents(doc)
@@ -690,7 +741,7 @@ def clean_wiki(doc: list,num_lines: int = 6) -> str:
     """ Cleans the wikipedia documents.
 
     """
-    cls = Clean_Text()
+    cls = Text_Process()
     doc = doc[num_lines:]
     doc = list(filter(None,doc))
     doc = cls.remove_wiki_contents(doc)
@@ -906,7 +957,7 @@ registered 501(c)(3) tax-deductible nonprofit charity.
 
 
 """
-    cls = Clean_Text()
+    cls = Text_Process()
     doc = doc.split("\n")
     doc,filtered_categories,filtered_hid_categories = cls.filter_html_categories_reverse(doc)
     doc_spacy = clean_wiki(doc)
