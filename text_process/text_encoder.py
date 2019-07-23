@@ -23,6 +23,7 @@ import numpy as np
 from os import mkdir
 from os.path import join,exists,split
 
+import gensim
 from gensim.models import word2vec,doc2vec
 from gensim.models.fasttext import FastText
 from gensim.models.keyedvectors import KeyedVectors
@@ -33,9 +34,7 @@ from logger import logger
 from config import configuration as config
 from config import platform as plat
 from config import username as user
-# from text_process.text_process import Text_Process
 from text_process import text_process
-# from text_process.text_process import Text_Process
 
 
 class Text_Encoder:
@@ -174,8 +173,9 @@ class Text_Encoder:
         doc2vectors = np.asarray(list(doc2vectors))  ## Converting Dict values to Numpy array.
         return doc2vectors
 
-    def load_word2vec(self,model_dir=config["paths"]["pretrain_dir"][plat][user],model_type='googlenews',
-                      encoding='latin-1',model_file_name="GoogleNews-vectors-negative300.bin"):
+    def load_word2vec(self,model_dir: str = config["paths"]["pretrain_dir"][plat][user],model_type: str = 'googlenews',
+                      encoding: str = 'latin-1',model_file_name: str = "GoogleNews-vectors-negative300.bin") -> \
+            gensim.models.keyedvectors.Word2VecKeyedVectors:
         """
         Loads Word2Vec model and returns initial weights for embedding layer.
 

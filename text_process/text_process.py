@@ -25,7 +25,7 @@ from spacy.lang.en.stop_words import STOP_WORDS
 import unicodedata
 from unidecode import unidecode
 from os.path import join,isfile
-from collections import OrderedDict
+from collections import OrderedDict,Counter
 
 from logger import logger
 from text_process.text_encoder import Text_Encoder
@@ -37,9 +37,6 @@ from config import username as user
 # spacy_en = spacy.load("en")
 spacy_en = spacy.load("en_core_web_sm")
 
-""" Cleaning Procedure (in order)::
-5. Remove texts like: "This section may require cleanup to meet Wikipedia's quality standards."
-"""
 headings = ['## [edit] ','### [edit] ','<IMG>',"[citation needed]",]
 wiki_patterns = ("It has been suggested that Incremental reading be merged into this article or section. (Discuss)",
                  "This section may require cleanup to meet Wikipedia's quality standards.",
@@ -56,7 +53,7 @@ class Text_Process(object):
         self.dataset_name = dataset_name
         self.dataset_dir = join(data_dir,self.dataset_name)
 
-    def process_categories(self,labels: dict, remove_stopwords=True):
+    def process_categories(self,labels: dict,remove_stopwords=True):
         """ Process categories like cleaning and tokenization.
 
         :param remove_stopwords:
@@ -122,7 +119,7 @@ class Text_Process(object):
         return Y
 
     @staticmethod
-    def split_docs(docs: dict,criteria = ' '):
+    def split_docs(docs: dict,criteria=' '):
         """
         Splits a dict of idx:documents based on [criteria].
 
@@ -172,7 +169,7 @@ class Text_Process(object):
                 category_cleaned_dict[cat_clean] = cat_id
         return category_cleaned_dict,dup_cat_map,dup_cat_text_map
 
-    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace='', remove_stopwords=True):
+    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace='',remove_stopwords=True):
         """Cleans sentences dict and returns dict of cleaned sentences.
 
         :param: sentences: dict of idx:label
@@ -211,15 +208,18 @@ class Text_Process(object):
         return doc
 
     @staticmethod
-    def tokenizer_spacy(input_text: str):
+    def tokenizer_spacy(input_text: str,remove_stopwords=True):
         """ Document tokenizer using spacy.
 
+        :param remove_stopwords: If stopwords should be removed.
         :param input_text:
         :return:
         """
         input_text = spacy_en(input_text)
         tokens = []
         for token in input_text:
+            if remove_stopwords and token.text in STOP_WORDS:
+                continue
             tokens.append(token.text)
         return tokens
 
@@ -296,7 +296,9 @@ class Text_Process(object):
         return doc
 
     def clean_doc(self,doc: list,pattern=re.compile(r"\[\d\]"),replace='',symbols=('_','-','=','@','<','>','*','{',
-                  '}','[',']','(',')','$','%','^','~','`',':',"\"","\'",'\\','/','|','#','##','###','####','#####')) -> list:
+                                                                                   '}','[',']','(',')','$','%','^','~',
+                                                                                   '`',':',"\"","\'",'\\','/','|','#',
+                                                                                   '##','###','####','#####')) -> list:
         """ Cleans a list of str.
 
         :param doc:
@@ -331,7 +333,8 @@ class Text_Process(object):
         return doc_cleaned
 
     @staticmethod
-    def read_stopwords(so_filepath: str = '',so_filename: str = 'stopwords_en.txt',encoding: str = "iso-8859-1") -> list:
+    def read_stopwords(so_filepath: str = '',so_filename: str = 'stopwords_en.txt',
+                       encoding: str = "iso-8859-1") -> list:
         """ Reads the stopwords list from file.
 
         :param so_filepath:
@@ -639,7 +642,7 @@ class Text_Process(object):
             return ps.stem(token)
 
     @staticmethod
-    def tokenizer_re(sent:str,lowercase=False,remove_emoticons=True):
+    def tokenizer_re(sent: str,lowercase=False,remove_emoticons=True):
         """ Tokenize a string.
 
         :param sent:
@@ -717,9 +720,7 @@ class Text_Process(object):
 
 
 def clean_wiki2(doc: list,num_lines: int = 6) -> str:
-    """ Cleans the wikipedia documents.
-
-    """
+    """ Cleans the wikipedia documents. """
     cls = Text_Process()
     doc = doc[num_lines:]
     doc = list(filter(None,doc))
@@ -738,9 +739,7 @@ def clean_wiki2(doc: list,num_lines: int = 6) -> str:
 
 
 def clean_wiki(doc: list,num_lines: int = 6) -> str:
-    """ Cleans the wikipedia documents.
-
-    """
+    """ Cleans the wikipedia documents. """
     cls = Text_Process()
     doc = doc[num_lines:]
     doc = list(filter(None,doc))
@@ -754,6 +753,11 @@ def clean_wiki(doc: list,num_lines: int = 6) -> str:
 
 
 def clean_wiki_pages(docs):
+    """
+
+    :param docs:
+    :return:
+    """
     docs_cleaned = []
     for doc in docs:
         docs_cleaned.append(clean_wiki(doc))
