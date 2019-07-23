@@ -53,6 +53,39 @@ class Text_Process(object):
         self.dataset_name = dataset_name
         self.dataset_dir = join(data_dir,self.dataset_name)
 
+    @staticmethod
+    def build_vocab(documents):
+        """ Builds a list of all words present in list of lists [documents].
+
+        :param documents:
+        :return:
+        """
+        vocab = []
+        for d in documents:
+            vocab += d
+
+        return vocab
+
+    def remove_min_df(self,documents: list,min_df=5):
+        """ Removes words from documents with count <= [min_df].
+
+        :param documents:
+        :param min_df: Minimum document frequency.
+        """
+        vocab = self.build_vocab(documents)
+        freq_counts = Counter(vocab)
+
+        documents_df = []
+        for i,d in enumerate(documents):
+            d2 = []
+            for token in d:
+                if freq_counts[token] >= min_df:
+                    d2.append(token)
+            if len(d2) < 1: logger.warning("Empty document no [{}] after removing min_df = [{}].".format(i,min_df))
+            documents_df.append([" ".join(d2)])
+
+        return documents_df
+
     def process_categories(self,labels: dict,remove_stopwords=True):
         """ Process categories like cleaning and tokenization.
 
