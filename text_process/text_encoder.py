@@ -4,7 +4,7 @@
 __synopsis__    : Class to process and load pretrained models.
 
 __description__ : Class to process and load pretrained models.
-__project__     : MNXC
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
@@ -13,10 +13,6 @@ __license__     : This source code is licensed under the MIT-style license found
                   directory of this source tree.
 
 __classes__     : Text_Encoder
-
-__variables__   :
-
-__methods__     :
 """
 
 import numpy as np

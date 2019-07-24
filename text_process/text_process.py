@@ -4,7 +4,7 @@
 __synopsis__    : Cleans the input texts along with text labels.
 
 __description__ :
-__project__     : MNXC
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "06-05-2019"
@@ -13,10 +13,6 @@ __license__     : This source code is licensed under the MIT-style license found
                   directory of this source tree.
 
 __classes__     : Text_Process
-
-__variables__   :
-
-__methods__     :
 """
 
 import re,spacy
@@ -202,7 +198,7 @@ class Text_Process(object):
                 category_cleaned_dict[cat_clean] = cat_id
         return category_cleaned_dict,dup_cat_map,dup_cat_text_map
 
-    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace='',remove_stopwords=True):
+    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace=''):
         """Cleans sentences dict and returns dict of cleaned sentences.
 
         :param: sentences: dict of idx:label
@@ -328,17 +324,14 @@ class Text_Process(object):
                     del doc[i]  ## Match found; remove end before breaking
         return doc
 
-    def clean_doc(self,doc: list,pattern=re.compile(r"\[\d\]"),replace='',symbols=('_','-','=','@','<','>','*','{',
-                                                                                   '}','[',']','(',')','$','%','^','~',
-                                                                                   '`',':',"\"","\'",'\\','/','|','#',
-                                                                                   '##','###','####','#####')) -> list:
-        """ Cleans a list of str.
+    def clean_doc(self,doc: list,symbols=('_','-','=','@','<','>','*','{','}','[',']','(',')','$','%','^','~','`',':',
+                                          "\"","\'",'\\','/','|','#','##','###','####','#####'),replace='',
+                  pattern=re.compile(r"\[\d\]")) -> list:
+        """ Replaces all [symbols] in a list of str with [replace].
 
         :param doc:
         :param pattern:
         :param replace:
-        :param start:
-        :param end:
         :param symbols:
         :return:
         """
@@ -366,23 +359,20 @@ class Text_Process(object):
         return doc_cleaned
 
     @staticmethod
-    def read_stopwords(so_filepath: str = '',so_filename: str = 'stopwords_en.txt',
-                       encoding: str = "iso-8859-1") -> list:
-        """ Reads the stopwords list from file.
+    def read_stopwords(file_path: str = '',file_name: str = 'stopwords_en.txt',encoding: str = "iso-8859-1") -> list:
+        """ Reads the stopwords list from file, useful for customized stopwords.
 
-        :param so_filepath:
-        :param so_filename:
+        :param file_path:
+        :param file_name:
         :param encoding:
         """
-        from os.path import join,isfile
-
         so_list = []
-        if isfile(join(so_filepath,so_filename)):
-            with open(join(so_filepath,so_filename),encoding=encoding) as so_ptr:
+        if isfile(join(file_path,file_name)):
+            with open(join(file_path,file_name),encoding=encoding) as so_ptr:
                 for s_word in so_ptr:
                     so_list.append(s_word.strip())
         else:
-            raise Exception("File not found at: [{}]".format(join(so_filepath,so_filename)))
+            raise Exception("File not found at: [{}]".format(join(file_path,file_name)))
 
         return so_list
 
@@ -772,7 +762,7 @@ def clean_wiki2(doc: list,num_lines: int = 6) -> str:
 
 
 def clean_wiki(doc: list,num_lines: int = 6) -> str:
-    """ Cleans the wikipedia documents. """
+    """ Cleans a wikipedia document. """
     cls = Text_Process()
     doc = doc[num_lines:]
     doc = list(filter(None,doc))
@@ -786,7 +776,7 @@ def clean_wiki(doc: list,num_lines: int = 6) -> str:
 
 
 def clean_wiki_pages(docs):
-    """
+    """ Cleans wikipedia documents in list of lists format.
 
     :param docs:
     :return:

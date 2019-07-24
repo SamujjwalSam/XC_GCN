@@ -13,10 +13,6 @@ __license__     : This source code is licensed under the MIT-style license found
                   directory of this source tree.
 
 __classes__     : class_name
-
-__variables__   :
-
-__methods__     :
 """
 
 import numpy as np

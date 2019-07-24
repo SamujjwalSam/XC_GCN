@@ -4,7 +4,7 @@
 __synopsis__    : Initializes weights to various Pytorch modules.
 
 __description__ :
-__project__     : MNXC
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ":  "
 __date__        : "26-02-2019"
@@ -13,12 +13,8 @@ __license__     : "This source code is licensed under the MIT-style license foun
                   directory of this source tree."
 
 __classes__     :
-    
-__variables__   :
-    
-__methods__     :
 
-__last_modified__: 
+__last_modified__:
 """
 import torch.nn as nn
 import torch.nn.init as init

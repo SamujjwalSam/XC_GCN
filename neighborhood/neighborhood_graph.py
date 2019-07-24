@@ -13,10 +13,6 @@ __license__     : This source code is licensed under the MIT-style license found
                   directory of this source tree.
 
 __classes__     : Neighborhood_Graph
-
-__variables__   :
-
-__methods__     :
 """
 
 import numpy as np
@@ -49,12 +45,13 @@ class Neighborhood_Graph:
         self.dataset_name = dataset_name
         self.graph_format = graph_format
         self.top_k = top_k
+        # self.load_doc_neighborhood_graph()
 
         self.classes = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_classes_train"))
         self.categories = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_categories"))
         self.cat_id2text_map = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_cat_id2text_map"))
 
-    def create_neighborhood_graph(self,doc2cats_map: dict = None, min_common=config["graph"]["min_common"]):
+    def create_neighborhood_graph(self,doc2cats_map: dict = None,min_common=config["graph"]["min_common"]):
         """ Generates the neighborhood graph (of type category or document) as key
         and common items as values.
 
@@ -92,9 +89,7 @@ class Neighborhood_Graph:
     def prepare_label_graph(self,cat2docs_map=None):
         """ Generates a dict of categories mapped to document and then creates the label neighborhood graph.
 
-        :param cat_texts:
         :param cat2docs_map:
-        :param cats:
         """
         if cat2docs_map is None:
             cat2docs_map = self.invert_classes_dict(self.classes)
@@ -104,7 +99,7 @@ class Neighborhood_Graph:
         nx.relabel_nodes(G_cats,self.cat_id2text_map,copy=False)
         return G_cats
 
-    def load_doc_neighborhood_graph(self, graph_path=None, get_stats=config["graph"]["stats"]):
+    def load_doc_neighborhood_graph(self,graph_path=None,get_stats: bool = config["graph"]["stats"]):
         """ Loads the graph file if found else creates neighborhood graph.
 
         :param get_stats:
@@ -114,18 +109,18 @@ class Neighborhood_Graph:
         if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,self.dataset_name + "_G" + ".graphml")
         if exists(graph_path):
             logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
-            G_docs = nx.read_graphml(graph_path)
+            Docs_G = nx.read_graphml(graph_path)
         else:
             G_docs = self.create_neighborhood_graph()
             logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
-            nx.write_graphml(G_docs,graph_path)
-        Adj_docs = nx.adjacency_matrix(G_docs)
+            nx.write_graphml(Docs_G,graph_path)
+        # Docs_adj = nx.adjacency_matrix(Docs_G)
         if get_stats:
-            G_docs_stats = self.graph_stats(G_docs)
-            File_Util.save_json(G_docs_stats,filename=self.dataset_name+"_stats_",overwrite=True,
+            G_docs_stats = self.graph_stats(Docs_G)
+            File_Util.save_json(G_docs_stats,filename=self.dataset_name + "_stats_",overwrite=True,
                                 file_path=join(self.graph_dir,self.dataset_name))
-            return G_docs,Adj_docs,G_docs_stats
-        return G_docs,Adj_docs
+            return Docs_G,G_docs_stats
+        return Docs_G
 
     @staticmethod
     def graph_stats(G):
@@ -163,7 +158,7 @@ class Neighborhood_Graph:
         else:
             logger.warning("The graph in not connected.")
             G_comps = nx.connected_components(G)
-            logger.debug([len(c) for c in sorted(G_comps, key=len, reverse=True)])
+            logger.debug([len(c) for c in sorted(G_comps,key=len,reverse=True)])
 
         return G_stats
 
@@ -307,7 +302,7 @@ def main():
     """
     cls = Neighborhood_Graph()
     # cls.find_single_labels()
-    G_docs,Adj_docs,G_docs_stats = cls.load_doc_neighborhood_graph()
+    G_docs,G_docs_stats = cls.load_doc_neighborhood_graph()
     cls.plot_occurance(list(G_docs_stats["degree_sequence"]))
     logger.info("Adjacency Matrix: [{0}]".format(Adj_docs.todense().shape))
 

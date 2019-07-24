@@ -4,7 +4,7 @@
 __synopsis__    : Utility functions for Matching Networks for Extreme Classification.
 
 __description__ :
-__project__     : MNXC
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"

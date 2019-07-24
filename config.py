@@ -4,7 +4,7 @@
 __synopsis__    : Contains system configuration details and other global variables.
 
 __description__ : Benefit: We can print the configuration on every run and get the hyper-parameter configuration for each run.
-__project__     : MNXC
+__project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "04-03-2019"
