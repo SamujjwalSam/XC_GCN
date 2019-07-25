@@ -63,6 +63,42 @@ class Prepare_Data:
         # Docs_adj_coo_t = adj_csr2t_coo(Docs_adj_coo)
         return Docs_adj_coo
 
+    @staticmethod
+    def create_batch_repeat(X: dict,Y: dict,keys):
+        """
+        Generates batch from keys.
+
+        :param X:
+        :param Y:
+        :param keys:
+        :return:
+        """
+        batch_x = []
+        batch_y = []
+        shuffle(keys)
+        for k in keys:
+            batch_x.append(X[k])
+            batch_y.append(Y[k])
+        return batch_x,batch_y
+
+    def get_features(self,return_cat_indices=False,multi_label=False):
+        """ Generates feature vectors of input documents. """
+        keys = list(self.classes_selected.keys())
+        train_sentences,train_classes = self.create_batch_repeat(self.sentences_selected,self.classes_selected,keys)
+        features = self.txt2vec(train_sentences)
+        categories_hot = self.mlb.transform(train_classes)
+
+        if return_cat_indices:
+            if multi_label:
+                ## For Multi-Label, multi-label-margin loss
+                cats_idx = [self.mlb.inverse_transform(categories_hot)]
+            else:
+                ## For Multi-Class, cross-entropy loss
+                cats_idx = categories_hot.argmax(1)
+            return features,categories_hot,cats_idx
+
+        return features, categories_hot
+
     def cat2samples(self,classes_dict: dict = None):
         """
         Converts sample : categories to categories : samples

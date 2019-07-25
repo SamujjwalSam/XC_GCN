@@ -47,9 +47,14 @@ class Neighborhood_Graph:
         self.top_k = top_k
         # self.load_doc_neighborhood_graph()
 
-        self.classes = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_classes_train"))
-        self.categories = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_categories"))
-        self.cat_id2text_map = File_Util.load_json(join(graph_dir,dataset_name,dataset_name + "_cat_id2text_map"))
+    def get_adj_matrix(self,G=None,adj_format="coo"):
+        """ :returns the adjacency matrix in [adj_format].
+
+        :param G: Networkx Graph
+        :param adj_format: scipy sparse format name, e.g. {‘bsr’, ‘csr’, ‘csc’, ‘coo’, ‘lil’, ‘dia’, ‘dok’}.
+        """
+        if G is None: G = self.load_doc_neighborhood_graph()
+        return nx.to_scipy_sparse_matrix(G,format=adj_format)
 
     def create_neighborhood_graph(self,doc2cats_map: dict = None,min_common=config["graph"]["min_common"]):
         """ Generates the neighborhood graph (of type category or document) as key
