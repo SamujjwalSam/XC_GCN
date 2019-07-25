@@ -21,8 +21,8 @@ import torch.utils.data
 from collections import OrderedDict
 
 from file_utils import File_Util
-from text_process import clean_wiki,Clean_Text
-from logger.logger import logger
+from text_process import clean_wiki,Text_Process
+from logger import logger
 from config import configuration as config
 from config import platform as plat
 from config import username as user
@@ -65,7 +65,7 @@ class HTMLLoader(torch.utils.data.Dataset):
         self.raw_html_dir = join(self.data_dir,dataset_name + "_RawData")
         self.raw_txt_dir = join(self.data_dir,"txt_files")
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name,self.data_dir))
-        self.clean = Clean_Text()
+        self.clean = Text_Process()
         self.sentences,self.classes,self.categories = self.gen_dicts()
 
     def gen_dicts(self):

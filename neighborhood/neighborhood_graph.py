@@ -111,7 +111,13 @@ class Neighborhood_Graph:
             logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
             Docs_G = nx.read_graphml(graph_path)
         else:
-            G_docs = self.create_neighborhood_graph()
+            self.classes = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                    "_classes_train"))
+            self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                       "_categories"))
+            self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                            "_cat_id2text_map"))
+            Docs_G = self.create_neighborhood_graph()
             logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
             nx.write_graphml(Docs_G,graph_path)
         # Docs_adj = nx.adjacency_matrix(Docs_G)

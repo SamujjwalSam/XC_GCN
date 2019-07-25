@@ -24,9 +24,9 @@ from data_loaders import html_loader as html
 from data_loaders import json_loader as json
 from data_loaders import txt_loader as txt
 from file_utils import File_Util
-from logger.logger import logger
+from logger import logger
 from config import configuration as config
-from text_process import Clean_Text
+from text_process import Text_Process
 from config import platform as plat
 from config import username as user
 
@@ -61,7 +61,7 @@ class Common_JSON_Handler:
         self.dataset_type = dataset_type
         self.data_dir = join(data_dir,self.dataset_name)
 
-        self.clean = Clean_Text()
+        self.clean = Text_Process()
 
         self.categories_all = None
         self.sentences_selected,self.classes_selected,self.categories_selected = None,None,None

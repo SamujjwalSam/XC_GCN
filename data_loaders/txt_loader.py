@@ -20,8 +20,7 @@ import torch.utils.data
 from collections import OrderedDict
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 
-from file_utils import File_Util
-from logger.logger import logger
+from logger import logger
 from config import configuration as config
 from config import platform as plat
 from config import username as user

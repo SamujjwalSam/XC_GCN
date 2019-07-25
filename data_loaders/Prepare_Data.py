@@ -17,6 +17,7 @@ __methods__     :
 """
 
 import numpy as np
+from random import sample,shuffle
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
 
@@ -47,7 +48,7 @@ class Prepare_Data:
 
         self.doc2vec_model = None
         self.categories_all = None
-        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
+        self.sentences_selected,self.classes_selected,self.categories_selected = None,None,None
         self.txt_process = Text_Process()
 
         self.mlb = MultiLabelBinarizer()
@@ -56,15 +57,13 @@ class Prepare_Data:
         self.graph = Neighborhood_Graph()
 
     def load_graph_data(self):
-        """ Loads graph related data for XC datasets.
-
-        """
+        """ Loads graph related data for XC datasets. """
         Docs_G = self.graph.load_doc_neighborhood_graph()
         Docs_adj_coo = self.graph.get_adj_matrix(Docs_G,adj_format='coo')
         # Docs_adj_coo_t = adj_csr2t_coo(Docs_adj_coo)
         return Docs_adj_coo
 
-    def cat2samples(self, classes_dict: dict = None):
+    def cat2samples(self,classes_dict: dict = None):
         """
         Converts sample : categories to categories : samples
 
@@ -72,7 +71,7 @@ class Prepare_Data:
         """
         cat2id = OrderedDict()
         if classes_dict is None: classes_dict = self.classes_selected
-        for k, v in classes_dict.items():
+        for k,v in classes_dict.items():
             for cat in v:
                 if cat not in cat2id:
                     cat2id[cat] = []
@@ -87,16 +86,16 @@ class Prepare_Data:
         :param load_type: Which data to load: Options: ['train', 'val', 'test']
         """
         if load_type is 'train':  ## Get the idf dict for train documents but not for others.
-            self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all, self.idf_dict = \
-                self.dataset_loader.get_data(load_type=load_type)
+            self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all,\
+            self.idf_dict = self.dataset_loader.get_data(load_type=load_type)
         else:
-            self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = \
+            self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all =\
                 self.dataset_loader.get_data(load_type=load_type)
         self.remain_sample_ids = list(self.sentences_selected.keys())
         self.cat2sample_map = self.cat2samples(self.classes_selected)
         self.remain_cat_ids = list(self.categories_selected.keys())
         logger.info("[{}] data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(load_type, len(self.sentences_selected), len(self.classes_selected),
+                    .format(load_type,len(self.sentences_selected),len(self.classes_selected),
                             len(self.categories_selected)))
         logger.info("Total category count: [{}]".format(len(self.categories_all)))
 
@@ -108,9 +107,9 @@ class Prepare_Data:
 
         # self.idf_dict = self.clean.calculate_idf(docs=self.sentences_selected.values())
         if return_loaded:
-            return self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all
+            return self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all
 
-    def txt2vec(self, sentences: list, vectorizer=config["prep_vecs"]["vectorizer"],
+    def txt2vec(self,sentences: list,vectorizer=config["prep_vecs"]["vectorizer"],
                 tfidf_avg=config["prep_vecs"]["tfidf_avg"]):
         """
         Creates vectors from input_texts based on [vectorizer].
@@ -151,12 +150,12 @@ class Prepare_Data:
         if vectorizer == "doc2vec":
             if self.doc2vec_model is None:
                 self.doc2vec_model = self.text_encoder.load_doc2vec(sentences)
-            vectors_dict = self.text_encoder.get_doc2vecs(sentences, self.doc2vec_model)
+            vectors_dict = self.text_encoder.get_doc2vecs(sentences,self.doc2vec_model)
             return vectors_dict
         elif vectorizer == "word2vec":
             w2v_model = self.text_encoder.load_word2vec()
-            sentences = list(filter(None, sentences))  ## Removing empty items.
-            return self.create_doc_vecs(sentences, w2v_model=w2v_model)
+            sentences = list(filter(None,sentences))  ## Removing empty items.
+            return self.create_doc_vecs(sentences,w2v_model=w2v_model)
         else:
             raise Exception("Unknown vectorizer: [{}]. \n"
                             "Available options: ['doc2vec','word2vec']"
@@ -164,7 +163,8 @@ class Prepare_Data:
 
     oov_words_dict = {}
 
-    def create_doc_vecs(self, sentences: list, w2v_model, use_idf=config["prep_vecs"]["idf"], concat_axis=0, input_size=config["prep_vecs"]["input_size"]):
+    def create_doc_vecs(self,sentences: list,w2v_model,use_idf=config["prep_vecs"]["idf"],concat_axis=0,
+                        input_size=config["prep_vecs"]["input_size"]):
         """
         Calculates the average of vectors of all words within a chunk and concatenates the chunks.
 
@@ -177,14 +177,14 @@ class Prepare_Data:
         :returns: Average of vectors of chunks. Dim: input_size.
         """
         docs_vecs = []  # List to hold generated vectors.
-        for i, doc in enumerate(sentences):
+        for i,doc in enumerate(sentences):
             chunks = self.partition_doc(doc)
-            chunks = list(filter(None, chunks))  ## Removing empty items.
+            chunks = list(filter(None,chunks))  ## Removing empty items.
             vecs = self.sum_word_vecs(chunks,w2v_model)
             docs_vecs.append(vecs)
         return np.stack(docs_vecs)
 
-    def sum_word_vecs(self,words: list, w2v_model,input_size=config["prep_vecs"]["input_size"], avg=True):
+    def sum_word_vecs(self,words: list,w2v_model,input_size=config["prep_vecs"]["input_size"],avg=True):
         """ Generates a vector of [input_size] using the [words] and [w2v_model].
 
         :param avg: If average to be calculated.
@@ -195,7 +195,7 @@ class Prepare_Data:
         """
         # oov_words_dict = {}  ## To hold out-of-vocab words.
         sum_vec = None
-        for i, word in enumerate(words):
+        for i,word in enumerate(words):
             ## Multiply idf of that word with the vector
             try:  ## If word exists in idf dict
                 idf = self.idf_dict[word]
@@ -206,14 +206,14 @@ class Prepare_Data:
                 if sum_vec is None:
                     sum_vec = w2v_model[word] * idf
                 else:
-                    sum_vec = np.add(sum_vec, w2v_model[word] * idf)
+                    sum_vec = np.add(sum_vec,w2v_model[word] * idf)
             elif word in Prepare_Data.oov_words_dict:  ## If word is OOV
                 if sum_vec is None:
                     sum_vec = Prepare_Data.oov_words_dict[word] * idf
                 else:
                     sum_vec = np.add(sum_vec,Prepare_Data.oov_words_dict[word] * idf)
             else:  ## New unknown word, need to create random vector.
-                new_oov_vec = np.random.uniform(-0.5, 0.5, input_size)
+                new_oov_vec = np.random.uniform(-0.5,0.5,input_size)
                 # w2v_model.add(word, new_oov_vec)  ## For some reason, gensim word2vec.add() not working.
                 Prepare_Data.oov_words_dict[word] = new_oov_vec
                 if sum_vec is None:
@@ -221,7 +221,7 @@ class Prepare_Data:
                 else:
                     sum_vec = np.add(sum_vec,Prepare_Data.oov_words_dict[word] * idf)
         if avg:
-            sum_vec = np.divide(sum_vec, float(len(words)))
+            sum_vec = np.divide(sum_vec,float(len(words)))
 
         return np.stack(sum_vec)
 
@@ -256,7 +256,7 @@ class Prepare_Data:
                     index_end = index_start + chunk_size
                 else:  ## Available data is less than chunk_size
                     index_end = index_start + (doc_len - index_start)
-                logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start, index_end))
+                logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start,index_end))
                 chunk = splitted_doc[index_start:index_end]
                 chunks.append(chunk)
                 index_start = index_end
@@ -264,7 +264,7 @@ class Prepare_Data:
             raise Exception("Unknown document partition mode: [{}]. \n"
                             "Available options: ['concat','word_avg (Default)','sentences','chunked']"
                             .format(sents_chunk_mode))
-        chunks = list(filter(None, chunks))  ## Removes empty items, like: ""
+        chunks = list(filter(None,chunks))  ## Removes empty items, like: ""
         return chunks
 
     def normalize_inputs(self):
@@ -277,12 +277,12 @@ class Prepare_Data:
         self.max = np.max(self.x_train)
         self.min = np.min(self.x_train)
         logger.debug(
-            ("train_shape", self.x_train.shape, "test_shape", self.x_test.shape, "val_shape", self.x_val.shape))
+            ("train_shape",self.x_train.shape,"test_shape",self.x_test.shape,"val_shape",self.x_val.shape))
         self.x_train = (self.x_train - self.mean) / self.std
         self.x_val = (self.x_val - self.mean) / self.std
         self.x_test = (self.x_test - self.mean) / self.std
 
-    def create_multihot(self, batch_classes_dict):
+    def create_multihot(self,batch_classes_dict):
         """
         Creates multi-hot vectors for a batch of data.
 
@@ -305,8 +305,8 @@ if __name__ == '__main__':
                                   dataset_name=config["data"]["dataset_name"],
                                   dataset_dir=config["paths"]["dataset_dir"][plat][user])
 
-    # data_formatter.pre_load_data()
-    # data_formatter.test_d2v_1nn()
-    data_formatter.get_test_data()
-    # j_sim = data_formatter.test_d2v_1nn()
-    # logger.debug(j_sim)
+    data_formatter.pre_load_data(load_type='val')
+    Adj = data_formatter.load_graph_data()
+    features, labels = data_formatter.get_features()
+    logger.debug(Adj)
+    logger.debug(features.shape)
