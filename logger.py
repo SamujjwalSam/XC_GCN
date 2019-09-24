@@ -58,7 +58,7 @@ class ColoredFormatter(Formatter):
 
 def create_logger(logger_name='root',
                   log_filename=LOG_FILE,
-                  file_path='logs',
+                  filepath='logs',
                   file_level=logging.DEBUG,
                   file_format="%(asctime)s [%(levelname)s %(funcName)s] (%(module)s:%(lineno)d) %(message)s",
                   console_level=logging.DEBUG,
@@ -71,18 +71,18 @@ def create_logger(logger_name='root',
     :param color:
     :param logger_name:
     :param log_filename:
-    :param file_path:
+    :param filepath:
     :param file_format:
     :param file_level:
     :param console_format:
     :param console_level:
     :return:
     """
-    if not exists(file_path):
-        makedirs(file_path)
+    if not exists(filepath):
+        makedirs(filepath)
     logger = logging.getLogger(logger_name)
     logger.setLevel(file_level)
-    file_logger = FileHandler(join(file_path, log_filename + '.log'))
+    file_logger = FileHandler(join(filepath, log_filename + '.log'))
     file_logger.setLevel(file_level)
     file_logger.setFormatter(Formatter(file_format))
     logger.addHandler(file_logger)

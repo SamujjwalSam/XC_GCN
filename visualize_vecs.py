@@ -28,8 +28,10 @@ from config import configuration as config
 class Vector_Visualizations:
     """ Visualize vectors in 2D. """
 
-    def __init__(self,cats: dict) -> None:
+    def __init__(self) -> None:
         super(Vector_Visualizations,self).__init__()
+        self.text_process = Text_Process()
+        self.text_encoder = Text_Encoder()
 
         self.cats = cats
         text_process = Text_Process()
@@ -68,8 +70,7 @@ class Vector_Visualizations:
 
         self.use_tsne(arr,word_labels)
 
-    @staticmethod
-    def use_tsne(vecs,word_labels,plot_title=config["graph"]["plot_name"]):
+    def use_tsne(self, vecs: np.matrix, word_labels: list[int]) ->np.ndarray:
         """ Use tsne to project the vectors.
 
         :param vecs:
@@ -80,25 +81,36 @@ class Vector_Visualizations:
         tsne = TSNE(n_components=2,random_state=0)
         np.set_printoptions(suppress=True)
         Y = tsne.fit_transform(vecs)
-
-        x_coords = Y[:,0]
-        y_coords = Y[:,1]
-
-        ## display scatter plot
-        plt.scatter(x_coords,y_coords)
-
-        for label,x,y in zip(word_labels,x_coords,y_coords):
-            plt.annotate(label,xy=(x,y),xytext=(0,0),textcoords='offset points')
-        plt.xlim(x_coords.min() + 0.00005,x_coords.max() + 0.00005)
-        plt.ylim(y_coords.min() + 0.00005,y_coords.max() + 0.00005)
-        plt.xticks(rotation=35)
-        plt.title(plot_title)
-        plt.show()
+        self.plot_vectors(Y, word_labels)
 
         return Y
 
     @staticmethod
-    def use_pca(vecs,word_labels,plot_title=config["graph"]["plot_name"]):
+    def plot_vectors(vecs, labels, test_offset:float=0.005,plot_title=config["graph"]["plot_name"]):
+        """ Use tsne to project the vectors.
+
+        :param test_offset:
+        :param vecs:
+        :param labels:
+        :param plot_title:
+        """
+        vecs = np.asarray(vecs)
+        x_coords = vecs[:,0]
+        y_coords = vecs[:,1]
+
+        ## display scatter plot
+        plt.scatter(x_coords,y_coords)
+
+        for label,x,y in zip(labels, x_coords, y_coords):
+            plt.annotate(label,xy=(x,y),xytext=(0,0),textcoords='offset points')
+        plt.xlim(x_coords.min() + test_offset,x_coords.max() + test_offset)
+        plt.ylim(y_coords.min() + test_offset,y_coords.max() + test_offset)
+        plt.xticks(rotation=35)
+        plt.title(plot_title)
+        plt.show()
+        plt.savefig(plot_title)
+
+    def use_pca(self,vecs,word_labels):
         """ Use tsne to project the vectors.
 
         :param vecs:
@@ -109,20 +121,7 @@ class Vector_Visualizations:
         tsne = TSNE(n_components=2,random_state=0)
         np.set_printoptions(suppress=True)
         Y = tsne.fit_transform(vecs)
-
-        x_coords = Y[:,0]
-        y_coords = Y[:,1]
-
-        ## display scatter plot
-        plt.scatter(x_coords,y_coords)
-
-        for label,x,y in zip(word_labels,x_coords,y_coords):
-            plt.annotate(label,xy=(x,y),xytext=(0,0),textcoords='offset points')
-        plt.xlim(x_coords.min() + 0.00005,x_coords.max() + 0.00005)
-        plt.ylim(y_coords.min() + 0.00005,y_coords.max() + 0.00005)
-        plt.xticks(rotation=35)
-        plt.title(plot_title)
-        plt.show()
+        self.plot_vectors(Y, word_labels)
 
         return Y
 
@@ -462,9 +461,16 @@ def main():
         "11676":"Geneva Conventions"
     }
 
-    visul = Vector_Visualizations(cats)
-    cats_processed = visul.show_vectors()
-    logger.debug(cats_processed)
+    visul = Vector_Visualizations()
+    X = np.matrix([[i+1, -i-1] for i in range(4)], dtype=float)
+    logger.debug(X.shape)
+    logger.debug(X)
+    y = visul.use_tsne(X,[1,2,3,4])
+    logger.debug(y.shape)
+    logger.debug(y)
+    visul.plot_vectors(X,[1,2,3,4])
+    # cats_processed = visul.show_vectors()
+    # logger.debug(cats_processed)
 
 
 if __name__ == "__main__":

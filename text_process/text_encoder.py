@@ -30,7 +30,6 @@ from logger import logger
 from config import configuration as config
 from config import platform as plat
 from config import username as user
-from text_process import text_process
 
 
 class Text_Encoder:
@@ -64,7 +63,6 @@ class Text_Encoder:
         self.model_type = model_type
         self.model_dir = model_dir
         self.embedding_dim = embedding_dim
-        self.clean = text_process.Text_Process()
 
         if model_type == "googlenews":
             filename = "GoogleNews-vectors-negative300.bin"
@@ -98,11 +96,11 @@ class Text_Encoder:
         self.pretrain_model = None
         # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
-    def load_doc2vec(self,documents,vector_size=config["prep_vecs"]["input_size"],window=config["prep_vecs"]["window"],
-                     min_count=config["prep_vecs"]["min_count"],workers=config["text_process"]["workers"],seed=0,
-                     clean_tmp=False,save_model=True,doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
-                     doc2vec_dir=join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"]),
-                     negative=config["prep_vecs"]["negative"]):
+    def load_doc2vec_model(self,documents,vector_size=config["prep_vecs"]["input_size"],window=config["prep_vecs"]["window"],
+                           min_count=config["prep_vecs"]["min_count"],workers=config["text_process"]["workers"],seed=0,
+                           clean_tmp=False,save_model=True,doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
+                           doc2vec_dir=join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"]),
+                           negative=config["prep_vecs"]["negative"]):
         """
         Generates vectors from documents.
         https://radimrehurek.com/gensim/models/doc2vec.html
@@ -181,7 +179,7 @@ class Text_Encoder:
         """
         if self.pretrain_model is not None: return self.pretrain_model
 
-        assert (exists(join(model_dir,model_file_name)))
+        assert exists(join(model_dir,model_file_name)), "Model file not found at: [{}].".format(join(model_dir,model_file_name))
         logger.debug("Using [{0}] model from [{1}]".format(model_type,join(model_dir,model_file_name)))
         if model_type == 'googlenews' or model_type == "fasttext_wiki":
             if exists(join(model_dir,model_file_name + '.bin')):
@@ -241,7 +239,7 @@ class Text_Encoder:
         Returns initial weights for embedding layer.
 
         inputs:
-        sentence_matrix # int matrix: num_sentences x max_sentence_len
+        sentence_matrix # int matrix: num_txts x max_sentence_len
         vocabulary_inv  # dict {str:int}
         embedding_dim    # Word vector dimensionality
         min_word_count  # Minimum word count
@@ -260,8 +258,8 @@ class Text_Encoder:
 
             ## Initialize and train the model
             logger.info("Training Word2Vec model...")
-            sentences = [[vocabulary_inv[w] for w in s] for s in sentence_matrix]
-            pretrain_model = word2vec.Word2Vec(sentences,workers=num_workers,
+            txts = [[vocabulary_inv[w] for w in s] for s in sentence_matrix]
+            pretrain_model = word2vec.Word2Vec(txts,workers=num_workers,
                                                size=embedding_dim,
                                                min_count=min_word_count,
                                                window=context,
@@ -305,6 +303,6 @@ if __name__ == '__main__':
     sentence_president = 'The president greets the press in Chicago'
 
     docs = [sentence_obama,sentence_president]
-    doc2vec_model = cls.load_doc2vec(docs,vector_size=10,window=2,negative=2,save_model=False)
+    doc2vec_model = cls.load_doc2vec_model(docs,vector_size=10,window=2,negative=2,save_model=False)
     vectors = cls.get_doc2vectors(docs,doc2vec_model)
     logger.debug(vectors)

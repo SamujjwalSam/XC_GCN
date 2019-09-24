@@ -47,13 +47,15 @@ class Neighborhood_Graph:
         self.top_k = top_k
         # self.load_doc_neighborhood_graph()
 
-    def get_adj_matrix(self,G=None,adj_format="coo"):
-        """ :returns the adjacency matrix in [adj_format].
+    def get_adj_matrix(self,G: nx.classes.graph.Graph = None,default_load: str = 'val',adj_format: str = "coo"):
+        """ Returns the adjacency matrix in [adj_format].
 
+        :param default_load:
         :param G: Networkx Graph
         :param adj_format: scipy sparse format name, e.g. {‘bsr’, ‘csr’, ‘csc’, ‘coo’, ‘lil’, ‘dia’, ‘dok’}.
         """
-        if G is None: G = self.load_doc_neighborhood_graph()
+        if G is None:
+            G = self.load_doc_neighborhood_graph(get_stats=False,default_load=default_load)
         return nx.to_scipy_sparse_matrix(G,format=adj_format)
 
     def create_neighborhood_graph(self,doc2cats_map: dict = None,min_common=config["graph"]["min_common"]):
@@ -68,6 +70,9 @@ class Neighborhood_Graph:
         """
         if doc2cats_map is None: doc2cats_map = self.classes
         G = nx.Graph()
+        nodes = list(doc2cats_map.keys())
+        G.add_nodes_from(nodes)
+        logger.debug(nx.info(G))
         for doc1,cats1 in doc2cats_map.items():
             for doc2,cats2 in doc2cats_map.items():
                 if doc1 != doc2:
@@ -84,7 +89,7 @@ class Neighborhood_Graph:
         :return:
         """
         if input_dict is None: input_dict = self.classes
-        inverted_dict = {}
+        inverted_dict = OrderedDict()
         for doc,cats in input_dict.items():
             for cat in cats:
                 inverted_dict[cat].append(doc)
@@ -104,22 +109,25 @@ class Neighborhood_Graph:
         nx.relabel_nodes(G_cats,self.cat_id2text_map,copy=False)
         return G_cats
 
-    def load_doc_neighborhood_graph(self,graph_path=None,get_stats: bool = config["graph"]["stats"]):
+    def load_doc_neighborhood_graph(self,default_load='val',graph_path=None,
+                                    get_stats: bool = config["graph"]["stats"]):
         """ Loads the graph file if found else creates neighborhood graph.
 
+        :param default_load:
         :param get_stats:
         :param graph_path: Full path to the graphml file.
         :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
-        if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,self.dataset_name + "_G" + ".graphml")
+        if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
+                                                 self.dataset_name + "_G_" + default_load + ".graphml")
         if exists(graph_path):
             logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
             Docs_G = nx.read_graphml(graph_path)
         else:
             self.classes = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                    "_classes_train"))
-            self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                       "_categories"))
+                                                    "_classes_" + default_load))
+            # self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+            #                                            "_cats"))
             self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
                                                             "_cat_id2text_map"))
             Docs_G = self.create_neighborhood_graph()
@@ -127,10 +135,10 @@ class Neighborhood_Graph:
             nx.write_graphml(Docs_G,graph_path)
         # Docs_adj = nx.adjacency_matrix(Docs_G)
         if get_stats:
-            G_docs_stats = self.graph_stats(Docs_G)
-            File_Util.save_json(G_docs_stats,filename=self.dataset_name + "_stats_",overwrite=True,
-                                file_path=join(self.graph_dir,self.dataset_name))
-            return Docs_G,G_docs_stats
+            Docs_G_stats = self.graph_stats(Docs_G)
+            File_Util.save_json(Docs_G_stats,filename=self.dataset_name + "_G_stats_" + default_load,overwrite=True,
+                                filepath=join(self.graph_dir,self.dataset_name))
+            return Docs_G,Docs_G_stats
         return Docs_G
 
     @staticmethod
@@ -214,7 +222,7 @@ class Neighborhood_Graph:
         # feature_dm: number of features per sample.
         # number_of_labels: total number of categories.
         # X: feature matrix of dimension total_points * feature_dm.
-        # classes: list of size total_points. Each element of the list containing categories corresponding to one sample.
+        # sample2cats: list of size total_points. Each element of the list containing categories corresponding to one sample.
         # V: list of all categories (nodes).
         # E: dict of edge tuple(node_1,node_2) -> weight, eg. {(1, 4): 1, (2, 7): 3}.
         """
@@ -313,9 +321,10 @@ def main():
     """
     cls = Neighborhood_Graph()
     # cls.find_single_labels()
-    G_docs,G_docs_stats = cls.load_doc_neighborhood_graph()
+    Docs_G,G_docs_stats = cls.load_doc_neighborhood_graph(get_stats=True)
+    Adj_docs = cls.get_adj_matrix(Docs_G)
     cls.plot_occurance(list(G_docs_stats["degree_sequence"]))
-    logger.info("Adjacency Matrix: [{0}]".format(Adj_docs.todense().shape))
+    logger.info("Adjacency Matrix: [{0}]".format(Adj_docs.shape))
 
     return
 

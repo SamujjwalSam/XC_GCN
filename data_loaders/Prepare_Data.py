@@ -1,9 +1,9 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Prepare the data.
+__synopsis__    : Handles data preparation operations.
 
-__description__ : Prepares the datasets as per Matching Networks model.
+__description__ : Prepares the datasets as per requirements of model.
 __project__     : XCGCN
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
@@ -17,13 +17,15 @@ __methods__     :
 """
 
 import numpy as np
-from random import sample,shuffle
+from random import shuffle
+from os.path import join,isfile,exists
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
 
-from text_process.text_encoder import Text_Encoder
 from neighborhood import Neighborhood_Graph
 from text_process import Text_Process
+from text_process.text_encoder import Text_Encoder
+from file_utils import File_Util
 from logger import logger
 from config import configuration as config
 from config import platform as plat
@@ -38,27 +40,29 @@ class Prepare_Data:
         etc.
     """
 
-    def __init__(self,
-                 dataset_loader,
-                 dataset_name: str = config["data"]["dataset_name"],
+    def __init__(self,dataset_loader,dataset_name: str = config["data"]["dataset_name"],
                  dataset_dir: str = config["paths"]["dataset_dir"][plat][user]) -> None:
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
         self.dataset_loader = dataset_loader
 
+        self.txts2vec_map = None
         self.doc2vec_model = None
-        self.categories_all = None
-        self.sentences_selected,self.classes_selected,self.categories_selected = None,None,None
-        self.txt_process = Text_Process()
+        self.cats_all = None
+        self.txt_encoder_model = None
+        self.txts_sel,self.sample2cats_sel,self.cats_sel = None,None,None
 
-        self.mlb = MultiLabelBinarizer()
-        # dataset_loader.gen_data_stats()
-        self.text_encoder = Text_Encoder()
         self.graph = Neighborhood_Graph()
+        self.txt_process = Text_Process()
+        self.txt_encoder = Text_Encoder()
+        self.mlb = MultiLabelBinarizer()
+
+        # dataset_loader.gen_data_stats()
+        self.oov_words_dict = OrderedDict()
 
     def load_graph_data(self):
-        """ Loads graph related data for XC datasets. """
-        Docs_G = self.graph.load_doc_neighborhood_graph()
+        """ Loads graph data for XC datasets. """
+        Docs_G = self.graph.load_doc_neighborhood_graph(get_stats=config["graph"]["stats"])
         Docs_adj_coo = self.graph.get_adj_matrix(Docs_G,adj_format='coo')
         # Docs_adj_coo_t = adj_csr2t_coo(Docs_adj_coo)
         return Docs_adj_coo
@@ -91,22 +95,21 @@ class Prepare_Data:
         if return_cat_indices:
             if multi_label:
                 ## For Multi-Label, multi-label-margin loss
-                cats_idx = [self.mlb.inverse_transform(categories_hot)]
+                cats_idx = [self.mlb.inverse_transform(sample2cats_keys_hot)]
             else:
                 ## For Multi-Class, cross-entropy loss
-                cats_idx = categories_hot.argmax(1)
-            return features,categories_hot,cats_idx
+                cats_idx = sample2cats_keys_hot.argmax(1)
+            return txt_vecs_keys,sample2cats_keys_hot,cats_idx
 
-        return features, categories_hot
+        return txt_vecs_keys,sample2cats_keys_hot
 
-    def cat2samples(self,classes_dict: dict = None):
-        """
-        Converts sample : categories to categories : samples
+    def invert_cat2samples(self,classes_dict: dict = None):
+        """Converts sample : cats to cats : samples
 
-        :returns: A dictionary of categories to sample mapping.
+        :returns: A dictionary of cats to sample mapping.
         """
         cat2id = OrderedDict()
-        if classes_dict is None: classes_dict = self.classes_selected
+        if classes_dict is None: classes_dict = self.sample2cats_sel
         for k,v in classes_dict.items():
             for cat in v:
                 if cat not in cat2id:
@@ -114,11 +117,11 @@ class Prepare_Data:
                 cat2id[cat].append(k)
         return cat2id
 
-    def pre_load_data(self,load_type: str = 'train',return_loaded: bool = False):
+    def pre_load_data(self,load_type: str = 'all',return_maps: bool = False):
         """
         Prepares (loads, vectorize, etc) the data provided by param "load_type".
 
-        :param return_loaded:
+        :param return_maps:
         :param load_type: Which data to load: Options: ['train', 'val', 'test']
         """
         if load_type is 'train':  ## Get the idf dict for train documents but not for others.
@@ -331,11 +334,11 @@ class Prepare_Data:
 
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
-    from data_loaders.common_data_handler import Common_JSON_Handler
+    from data_loaders.common_data_handler import Common_Data_Handler
 
-    data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+    data_loader = Common_Data_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
                                       dataset_name=config["data"]["dataset_name"],
-                                      data_dir=config["paths"]["dataset_dir"][plat][user])
+                                      dataset_dir=config["paths"]["dataset_dir"][plat][user])
 
     data_formatter = Prepare_Data(dataset_loader=data_loader,
                                   dataset_name=config["data"]["dataset_name"],
@@ -343,6 +346,6 @@ if __name__ == '__main__':
 
     data_formatter.pre_load_data(load_type='val')
     Adj = data_formatter.load_graph_data()
-    features, labels = data_formatter.get_features()
-    logger.debug(Adj)
+    features,labels = data_formatter.get_input_batch()
+    logger.debug(Adj.shape)
     logger.debug(features.shape)

@@ -84,33 +84,33 @@ def get_batch_keys(keys: list,batch_size=64,remove_keys=True):
     return keys,selected_keys
 
 
-def split_dict(classes: dict,sentences: dict,batch_size=64,remove_keys=True):
+def split_dict(sample2cats: dict,txts: dict,batch_size=64,remove_keys=True):
     """
     Randomly selects [batch_size] numbers of items from dictionary and remove them from the original dict.
 
-    :param sentences:
+    :param txts:
     :param remove_keys: Flag to indicate if selected items should be removed. It should be False for support set selection.
-    :param classes:
+    :param sample2cats:
     :param batch_size:
     :return:
     """
-    if len(classes) <= batch_size:
-        return None,classes,None,sentences
-    selected_keys = sample(list(classes.keys()),k=batch_size)
+    if len(sample2cats) <= batch_size:
+        return None,sample2cats,None,txts
+    selected_keys = sample(list(sample2cats.keys()),k=batch_size)
     selected_classes = OrderedDict()
-    selected_sentences = OrderedDict()
+    selected_txts = OrderedDict()
     if remove_keys:
         for key in selected_keys:
-            selected_classes[key] = classes[key]
-            del classes[key]
-            selected_sentences[key] = sentences[key]
-            del sentences[key]
-        return classes,selected_classes,sentences,selected_sentences
+            selected_classes[key] = sample2cats[key]
+            del sample2cats[key]
+            selected_txts[key] = txts[key]
+            del txts[key]
+        return sample2cats,selected_classes,txts,selected_txts
     else:
         for key in selected_keys:
-            selected_classes[key] = classes[key]
-            selected_sentences[key] = sentences[key]
-    return classes,selected_classes,sentences,selected_sentences
+            selected_classes[key] = sample2cats[key]
+            selected_txts[key] = txts[key]
+    return sample2cats,selected_classes,txts,selected_txts
 
 
 def remove_dup_list(seq,case=False):  # Dave Kirby
@@ -135,56 +135,56 @@ def inverse_dict_elm(labels: dict):
     return labels_inv
 
 
-def save_json(data, filename, file_path='', overwrite=False, indent=2, date_time_tag=''):
+def save_json(data, filename, filepath='', overwrite=False, indent=2, date_time_tag=''):
     """
 
     :param data:
     :param filename:
-    :param file_path:
+    :param filepath:
     :param overwrite:
     :param indent:
     :param date_time_tag:
     :return:
     """
-    logger.info("Saving JSON file: [{}]".format(join(file_path, date_time_tag + filename + ".json")))
-    if not overwrite and exists(join(file_path, date_time_tag + filename + ".json")):
+    logger.info("Saving JSON file: [{}]".format(join(filepath, date_time_tag + filename + ".json")))
+    if not overwrite and exists(join(filepath, date_time_tag + filename + ".json")):
         logger.warning("File [{}] already exists and Overwrite == False.".format(
-            join(file_path, date_time_tag + filename + ".json")))
+            join(filepath, date_time_tag + filename + ".json")))
         return True
     try:
-        with sopen(join(file_path, date_time_tag + filename + ".json"), 'w') as json_file:
+        with sopen(join(filepath, date_time_tag + filename + ".json"), 'w') as json_file:
             try:
                 json_file.write(json.dumps(data, indent=indent))
             except Exception as e:
                 logger.warning("Writing JSON failed: [{}]".format(e))
                 logger.warning(
-                    "Writing as string: [{}]".format(join(file_path, date_time_tag + filename + ".json")))
+                    "Writing as string: [{}]".format(join(filepath, date_time_tag + filename + ".json")))
                 json_file.write(json.dumps(str(data), indent=indent))
                 return True
         json_file.close()
         return True
     except Exception as e:
-        logger.warning("Writing JSON file [{}] failed: [{}]".format(join(file_path, filename), e))
+        logger.warning("Writing JSON file [{}] failed: [{}]".format(join(filepath, filename), e))
         logger.warning("Writing as TXT: [{}]".format(filename + ".txt"))
         write_file(data, filename, date_time_tag=date_time_tag)
         return False
 
 
-def load_json(filename: str,file_path: str = '',date_time_tag: str = '',ext: str = ".json",show_path: bool = False) -> OrderedDict:
+def load_json(filename: str,filepath: str = '',date_time_tag: str = '',ext: str = ".json",show_path: bool = False) -> OrderedDict:
     """
     Loads json file as python OrderedDict.
 
     :param show_path:
     :param ext: Should extension be appended?
     :param filename:
-    :param file_path:
+    :param filepath:
     :param date_time_tag:
     :return: OrderedDict
     """
-    file_loc = join(file_path, date_time_tag + filename + ext)
+    file_loc = join(filepath,date_time_tag + filename + ext)
     if show_path:
         logger.info("Reading JSON file: [{}]".format(file_loc))
-    if exists(join(file_path, date_time_tag + filename + ext)):
+    if exists(join(filepath,date_time_tag + filename + ext)):
         try:
             with sopen(file_loc, encoding="utf-8") as file:
                 json_dict = json.load(file)
@@ -204,21 +204,21 @@ def load_json(filename: str,file_path: str = '',date_time_tag: str = '',ext: str
         return False
 
 
-def read_json_str(filename, file_path='', date_time_tag='', ext="", show_path=False):
+def read_json_str(filename, filepath='', date_time_tag='', ext="", show_path=False):
     """
     Loads json file as python OrderedDict.
 
     :param show_path:
     :param ext: Should extension be appended?
     :param filename:
-    :param file_path:
+    :param filepath:
     :param date_time_tag:
     :return: OrderedDict
     """
-    file_loc = join(file_path, date_time_tag + filename + ext)
+    file_loc = join(filepath, date_time_tag + filename + ext)
     if show_path:
         logger.info("Reading JSON file: [{}]".format(file_loc))
-    if exists(join(file_path, date_time_tag + filename + ext)):
+    if exists(join(filepath, date_time_tag + filename + ext)):
         raw_json=open(file_loc, 'r').read()
         json_dict = json.loads(raw_json)
         logger.debug(json_dict)
@@ -228,7 +228,7 @@ def read_json_str(filename, file_path='', date_time_tag='', ext="", show_path=Fa
         return False
 
 
-def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding="utf-8", date_time_tag='',
+def write_file(data, filename, filepath='', overwrite=False, mode='w', encoding="utf-8", date_time_tag='',
                verbose=False):
     """
 
@@ -236,119 +236,120 @@ def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding
     :param encoding:
     :param data:
     :param filename:
-    :param file_path:
+    :param filepath:
     :param overwrite:
     :param mode:
     :param date_time_tag:
     :return:
     """
-    if not overwrite and exists(join(file_path, date_time_tag + filename + ".txt")):
+    if not overwrite and exists(join(filepath, date_time_tag + filename + ".txt")):
         # logger.warning("File [{}] already exists and Overwrite == False.".format(
-        #     join(file_path, date_time_tag + filename + ".txt")))
+        #     join(filepath, date_time_tag + filename + ".txt")))
         return True
-    with sopen(join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
+    with sopen(join(filepath, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
         if verbose:
-            logger.info("Saving text file: [{}]".format(join(file_path, date_time_tag + filename + ".txt")))
+            logger.info("Saving text file: [{}]".format(join(filepath, date_time_tag + filename + ".txt")))
         text_file.write(str(data))
         text_file.write("\n")
         text_file.write("\n")
     text_file.close()
 
 
-def load_npz(filename, file_path=''):
+def load_npz(filename, filepath=''):
     """
     Loads numpy objects from npz files.
 
     :param filename:
-    :param file_path:
+    :param filepath:
     :return:
     """
-    logger.info("Reading NPZ file: [{}]".format(join(file_path, filename + ".npz")))
-    if isfile(join(file_path, filename + ".npz")):
-        npz = sparse.load_npz(join(file_path, filename + ".npz"))
+    logger.info("Reading NPZ file: [{}]".format(join(filepath, filename + ".npz")))
+    if isfile(join(filepath, filename + ".npz")):
+        npz = sparse.load_npz(join(filepath, filename + ".npz"))
         return npz
     else:
-        logger.warning("Could not open file: [{}]".format(join(file_path, filename + ".npz")))
+        logger.warning("Could not open file: [{}]".format(join(filepath, filename + ".npz")))
         return False
 
 
-def save_npz(data, filename, file_path='', overwrite=False):
+def save_npz(data, filename, filepath='', overwrite=False):
     """
     Saves numpy objects to file.
 
     :param data:
     :param filename:
-    :param file_path:
+    :param filepath:
     :param overwrite:
     :return:
     """
-    logger.info("Saving NPZ file: [{}]".format(join(file_path, filename + ".npz")))
-    if not overwrite and exists(join(file_path, filename + ".npz")):
+    logger.info("Saving NPZ file: [{}]".format(join(filepath, filename + ".npz")))
+    if not overwrite and exists(join(filepath, filename + ".npz")):
         logger.warning(
-            "File [{}] already exists and Overwrite == False.".format(join(file_path, filename + ".npz")))
+            "File [{}] already exists and Overwrite == False.".format(join(filepath, filename + ".npz")))
         return True
     try:
-        sparse.save_npz(join(file_path, filename + ".npz"), data)
+        sparse.save_npz(join(filepath, filename + ".npz"), data)
         return True
     except Exception as e:
-        logger.warning("Could not write to npz file: [{}]".format(join(file_path, filename + ".npz")))
+        logger.warning("Could not write to npz file: [{}]".format(join(filepath, filename + ".npz")))
         logger.warning("Failure reason: [{}]".format(e))
         return False
 
 
-def save_pickle(data, filename, file_path, overwrite=False):
+def save_pickle(data, filename, filepath, overwrite=False):
     """
     Saves python object as pickle file.
 
     :param data:
     :param filename:
-    :param file_path:
+    :param filepath:
     :param overwrite:
     :return:
     """
-    # logger.debug("Method: save_pickle(data, filename, file_path, overwrite=False)")
-    logger.info("Writing to pickle file: [{}]".format(join(file_path, filename + ".pkl")))
-    if not overwrite and exists(join(file_path, filename + ".pkl")):
+    # logger.debug("Method: save_pickle(data, filename, filepath, overwrite=False)")
+    logger.info("Writing to pickle file: [{}]".format(join(filepath, filename + ".pkl")))
+    if not overwrite and exists(join(filepath, filename + ".pkl")):
         logger.warning("File [{}] already exists and Overwrite == False.".format(
-            join(file_path, filename + ".pkl")))
+            join(filepath, filename + ".pkl")))
         return True
     try:
-        if isfile(join(file_path, filename + ".pkl")):
+        if isfile(join(filepath, filename + ".pkl")):
             logger.info(
-                "Overwriting on pickle file: [{}]".format(join(file_path, filename + ".pkl")))
-        with sopen(join(file_path, filename + ".pkl"), 'wb') as pkl_file:
+                "Overwriting on pickle file: [{}]".format(join(filepath, filename + ".pkl")))
+        with sopen(join(filepath, filename + ".pkl"), 'wb') as pkl_file:
             pk.dump(data, pkl_file)
         pkl_file.close()
         return True
     except Exception as e:
         logger.warning(
-            "Could not write to pickle file: [{}]".format(join(file_path, filename + ".pkl")))
+            "Could not write to pickle file: [{}]".format(join(filepath, filename + ".pkl")))
         logger.warning("Failure reason: [{}]".format(e))
         return False
 
 
-def load_pickle(filename, file_path):
+def load_pickle(filename, filepath):
     """
     Loads pickle file from files.
 
     :param filename:
-    :param file_path:
+    :param filepath:
     :return:
     """
     # logger.debug("Method: load_pickle(pkl_file)")
-    if exists(join(file_path, filename + ".pkl")):
+    logger.info("Reading from pickle file: [{}]".format(join(filepath, filename + ".pkl")))
+    if exists(join(filepath, filename + ".pkl")):
         try:
-            logger.info("Reading pickle file: [{}]".format(join(file_path, filename + ".pkl")))
-            with sopen(join(file_path, filename + ".pkl"), 'rb') as pkl_file:
+            logger.info("Reading pickle file: [{}]".format(join(filepath, filename + ".pkl")))
+            with sopen(join(filepath, filename + ".pkl"), 'rb') as pkl_file:
                 loaded = pk.load(pkl_file)
             return loaded
         except Exception as e:
             logger.warning(
-                "Could not open file: [{}]".format(join(file_path, filename + ".pkl")))
+                "Could not open file: [{}]".format(join(filepath, filename + ".pkl")))
             logger.warning("Failure reason: [{}]".format(e))
             return False
     else:
-        logger.warning("File not found at: [{}]".format(join(file_path, filename + ".pkl")))
+        logger.warning("File not found at: [{}]".format(join(filepath, filename + ".pkl")))
 
 
 def main():

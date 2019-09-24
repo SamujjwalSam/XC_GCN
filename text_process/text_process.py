@@ -20,7 +20,7 @@ import numpy as np
 from spacy.lang.en.stop_words import STOP_WORDS
 import unicodedata
 from unidecode import unidecode
-from os.path import join,isfile
+from os.path import join,isfile,exists
 from collections import OrderedDict,Counter
 
 from logger import logger
@@ -41,13 +41,158 @@ wiki_patterns = ("It has been suggested that Incremental reading be merged into 
 
 class Text_Process(object):
     """ Class related to cleaning the input texts along with text labels. """
+    oov_words_dict = OrderedDict()
 
     def __init__(self,dataset_name: str = config["data"]["dataset_name"],
-                 data_dir: str = config["paths"]["dataset_dir"][plat][user]):
+                 dataset_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """ Initializes the parts of cleaning to be done. """
         super(Text_Process,self).__init__()
         self.dataset_name = dataset_name
-        self.dataset_dir = join(data_dir,self.dataset_name)
+        self.dataset_dir = dataset_dir
+        self.text_encoder = Text_Encoder()
+        self.vectorizer_model = None
+        self.txts2vec_map = None
+        self.cats2vec_map = None
+
+    def gen_cats2vec_map(self,cats: dict,vectorizer_model=None):
+        """
+        Generates a dict of sample text to it's vector map.
+
+        :param vectorizer_model: Doc2Vec model object.
+        :param cats:
+        :return:
+        """
+        if self.cats2vec_map is not None:
+            return self.cats2vec_map
+        else:
+            if cats is None: cats = File_Util.load_json(filename=self.dataset_name + "_cats",
+                                                        filepath=join(self.dataset_dir,self.dataset_name))
+            if vectorizer_model is None:  ## If model is not supplied, load model.
+                if self.vectorizer_model is None:
+                    self.vectorizer_model = self.text_encoder.load_word2vec()
+                vectorizer_model = self.vectorizer_model
+            cats2vec_dict = OrderedDict()
+            for sample_id,cat in cats.items():
+                tokens = self.tokenizer_spacy(cat)
+                tokens_vec = self.get_vecs_from_tokens(tokens,vectorizer_model)
+                cats2vec_dict[sample_id] = tokens_vec  ## Generate vector for a new sample.
+                # cats2vec_dict[sample_id] = vectorizer_model.infer_vector(self.tokenizer_spacy(cat))  ## Generate vector for a new sample using Doc2Vec model only.
+
+        self.cats2vec_map = cats2vec_dict
+        return self.cats2vec_map
+
+    def gen_sample2vec_map(self,txts: dict,vectorizer_model=None):
+        """
+        Generates a dict of sample text to it's vector map.
+
+        :param vectorizer_model: Doc2Vec model object.
+        :param txts:
+        :return:
+        """
+        if self.txts2vec_map is not None:
+            return self.txts2vec_map
+        else:
+            if txts is None: txts = File_Util.load_json(filename=self.dataset_name + "_txts",
+                                                        filepath=join(self.dataset_dir,self.dataset_name))
+            if vectorizer_model is None:  ## If model is not supplied, load model.
+                if self.vectorizer_model is None:
+                    self.vectorizer_model = self.text_encoder.load_word2vec()
+                vectorizer_model = self.vectorizer_model
+            txts2vec_dict = OrderedDict()
+            for sample_id,txt in txts.items():
+                tokens = self.tokenizer_spacy(txt)
+                tokens_vec = self.get_vecs_from_tokens(tokens,vectorizer_model)
+                txts2vec_dict[sample_id] = tokens_vec  ## Generate vector for a new sample.
+                # txts2vec_dict[sample_id] = vectorizer_model.infer_vector(self.tokenizer_spacy(txt))  ## Generate vector for a new sample using Doc2Vec model only.
+
+        self.txts2vec_map = txts2vec_dict
+        return self.txts2vec_map
+
+    def get_vecs_from_tokens(self,tokens: list,vectorizer_model,input_size=config["prep_vecs"]["input_size"],avg=True,use_idf=False):
+        """ Generates a vector of [input_size] using the [words] and [vectorizer_model].
+
+        :param use_idf:
+        :param avg: If average to be calculated.
+        :param tokens: List of words
+        :param vectorizer_model: Word2Vec model by Gensim
+        :param input_size: Dimension of each vector
+        :return: Vector of sum of all the words.
+        """
+        # oov_words_dict = OrderedDict()  ## To hold out-of-vocab tokens.
+        sum_vec = None
+        # logger.info("Setting default idf = [{}].".format(idf))
+        for i,word in enumerate(tokens):
+            ## Multiply idf of that word with the vector
+            idf = 1
+            if use_idf:
+                try:  ## If word exists in idf dict
+                    idf = self.idf_dict[word]
+                except KeyError as e:  ## If word does not exists in idf_dict, multiply 1
+                    logger.info("Token [{}] not found in idf_dict.".format(word))
+            if word in vectorizer_model.vocab:  ## If word is present in model
+                if sum_vec is None:
+                    sum_vec = vectorizer_model[word] * idf
+                else:
+                    sum_vec = np.add(sum_vec,vectorizer_model[word] * idf)
+            elif word in self.oov_words_dict:  ## If word is OOV
+                if sum_vec is None:
+                    sum_vec = self.oov_words_dict[word] * idf
+                else:
+                    sum_vec = np.add(sum_vec,self.oov_words_dict[word] * idf)
+            else:  ## New unknown word, need to create random vector.
+                new_oov_vec = np.random.uniform(-0.5,0.5,input_size)
+                # vectorizer_model.add(word, new_oov_vec)  ## For some reason, gensim word2vec.add() not working.
+                self.oov_words_dict[word] = new_oov_vec
+                if sum_vec is None:
+                    sum_vec = self.oov_words_dict[word] * idf
+                else:
+                    sum_vec = np.add(sum_vec,self.oov_words_dict[word] * idf)
+        if avg:
+            sum_vec = np.divide(sum_vec,float(len(tokens)))
+
+        return np.stack(sum_vec)
+
+    def partition_large_txt(self,doc: str,sents_chunk_mode: str = config["text_process"]["sents_chunk_mode"],
+                            num_chunks: int = config["prep_vecs"]["num_chunks"]) -> list:
+        """
+        Divides a document into chunks based on the vectorizer.
+
+        :param num_chunks:
+        :param doc:
+        :param sents_chunk_mode:
+        :param doc_len:
+        :return:
+        """
+        chunks = []
+        if sents_chunk_mode == "concat":
+            words = self.tokenizer_spacy(doc)
+            for word in words:
+                chunks.append(word)
+        elif sents_chunk_mode == "word_avg":
+            chunks = self.tokenizer_spacy(doc)
+        elif sents_chunk_mode == "txts":
+            chunks = self.sents_split(doc)
+        elif sents_chunk_mode == "chunked":
+            splitted_doc = self.tokenizer_spacy(doc)
+            doc_len = len(splitted_doc)
+            chunk_size = doc_len // num_chunks  ## Calculates how large each chunk should be.
+            index_start = 0
+            for i in range(num_chunks):
+                batch_portion = doc_len / (chunk_size * (i + 1))
+                if batch_portion > 1.0:
+                    index_end = index_start + chunk_size
+                else:  ## Available data is less than chunk_size
+                    index_end = index_start + (doc_len - index_start)
+                logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start,index_end))
+                chunk = splitted_doc[index_start:index_end]
+                chunks.append(chunk)
+                index_start = index_end
+        else:
+            raise Exception("Unknown document partition mode: [{}]. \n"
+                            "Available options: ['concat','word_avg (Default)','txts','chunked']"
+                            .format(sents_chunk_mode))
+        chunks = list(filter(None,chunks))  ## Removes empty items, like: ""
+        return chunks
 
     @staticmethod
     def build_vocab(documents):
@@ -82,54 +227,53 @@ class Text_Process(object):
 
         return documents_df
 
-    def process_categories(self,labels: dict,remove_stopwords=True):
-        """ Process categories like cleaning and tokenization.
+    def process_cats(self,labels: dict,remove_stopwords=True):
+        """ Process cats like cleaning and tokenization.
 
         :param remove_stopwords:
         :param labels:
         :return:
         """
-        labels_processed = self.clean_sentences_dict(labels,specials="""?!_-@<>#,.*?'{}[]()$%^~`:;"/\\:|""")
-        labels_tokens = []
-        for lbl_txt in labels_processed.values():
+        labels_processed,_ = self.clean_txts(labels,specials="""?!_-@<>#,.*?'{}()[]()$%^~`:;"/\\:|""")
+        labels_tokens = OrderedDict()
+        for lbl_id,lbl_txt in labels_processed.items():
             tokens = self.tokenizer_spacy(lbl_txt)
             if remove_stopwords:
                 tokens = [token for token in tokens if token not in STOP_WORDS]
-            labels_tokens.append(tokens)
+            labels_tokens[lbl_id] = tokens
 
         return labels_tokens
 
-    @staticmethod
-    def gen_cat_vecs(labels_tokens: list,model=None):
-        """ Generate label vectos using pretrained [model].
+    def gen_lbl2vec(self,cats_tokenized_dict: dict):
+        """ Generate label vectors using pretrained [model].
 
         :param model:
-        :param labels_tokens:
+        :param cats_tokenized_dict:
         :return:
         """
-        if model is None:
-            text_encoder = Text_Encoder()
-            model = text_encoder.load_word2vec()
-
-        lbl_vecs = []
-        oov_tokens = {}
-        for lbl in labels_tokens:
-            lbl_vec = np.zeros_like((1,300))
-            for token in lbl:
+        cat_vecs = []
+        cat2vecs_dict = OrderedDict()
+        oov_tokens = OrderedDict()
+        self.txt_encoder_model = self.text_encoder.load_word2vec()
+        for cat_id,cat in cats_tokenized_dict.items():
+            cat_vec = np.zeros_like((1,300))
+            for token in cat:
                 try:
-                    lbl_vec = model.get_vector(token)
+                    cat_vec = self.txt_encoder_model.get_vector(token)
                 except KeyError:
                     try:
-                        lbl_vec = oov_tokens[token]
+                        cat_vec = oov_tokens[token]
                     except KeyError:
                         # logger.debug("Vector for token [{}] not found.".format(token))
                         # logger.debug("Error: [{}]".format(e))
-                        lbl_vec = np.random.uniform(-0.5,0.5,300)
-                        oov_tokens[token] = lbl_vec
-                np.add(lbl_vec,lbl_vec)
-            lbl_vecs.append(np.divide(lbl_vec,len(lbl)))
+                        cat_vec = np.random.uniform(-0.5,0.5,300)
+                        oov_tokens[token] = cat_vec
+                np.add(cat_vec,cat_vec)
+            vec_avg = np.divide(cat_vec,len(cat))
+            cat_vecs.append(vec_avg)
+            cat2vecs_dict[cat_id] = vec_avg
 
-        return np.stack(lbl_vecs)
+        return np.stack(cat_vecs), cat2vecs_dict
 
     @staticmethod
     def dedup_data(Y: dict,dup_cat_map: dict):
@@ -174,55 +318,44 @@ class Text_Process(object):
         trans_table = str.maketrans(trans_dict)
         return trans_table
 
-    def clean_categories(self,categories: dict,replace=' ',
+    def clean_cats(self,cats: dict,replace=' ',
                          specials=""" ? ! _ - @ < > # , . * ? ' { } [ ] ( ) $ % ^ ~ ` : ; " / \\ : |"""):
-        """ Cleans categories dict by removing any symbols and lower-casing and returns set of cleaned categories
-        and the dict of duplicate categories.
+        """ Cleans cats dict by removing any symbols and lower-casing and returns set of cleaned cats
+        and the dict of duplicate cats.
 
-        :param: categories: dict of cat:id
+        :param: cats: dict of cat:id
         :param: specials: list of characters to clean.
         :returns:
-            category_cleaned_dict : contains categories which are unique after cleaning.
+            category_cleaned_dict : contains cats which are unique after cleaning.
             dup_cat_map : Dict of new category id mapped to old category id. {old_cat_id : new_cat_id}
         """
         category_cleaned_dict = OrderedDict()
         dup_cat_map = OrderedDict()
         dup_cat_text_map = OrderedDict()
         trans_table = self.make_trans_table(specials=specials,replace=replace)
-        for cat,cat_id in categories.items():
+        for cat,cat_id in cats.items():
             cat_clean = unidecode(str(cat)).translate(trans_table).lower().strip()
             if cat_clean in category_cleaned_dict.keys():
-                dup_cat_map[categories[cat]] = category_cleaned_dict[cat_clean]
+                dup_cat_map[cats[cat]] = category_cleaned_dict[cat_clean]
                 dup_cat_text_map[cat] = cat_clean
             else:
                 category_cleaned_dict[cat_clean] = cat_id
         return category_cleaned_dict,dup_cat_map,dup_cat_text_map
 
-    def clean_sentences_dict(self,sentences: dict,specials="""_-@*#'"/\\""",replace=''):
-        """Cleans sentences dict and returns dict of cleaned sentences.
+    def clean_txts(self,txts: dict,specials="""_-@*#'"/\\""",replace=''):
+        """Cleans txts dict and returns dict of cleaned txts.
 
-        :param: sentences: dict of idx:label
+        :param: txts: dict of idx:label
         :returns:
-            sents_cleaned_dict : contains cleaned sentences.
+            sents_cleaned_dict : contains cleaned txts.
         """
         sents_cleaned_dict = OrderedDict()
+        sents_cleaned_list = []
         trans_table = self.make_trans_table(specials=specials,replace=replace)
-        for idx,text in sentences.items():
+        for idx,text in txts.items():
+            sents_cleaned_list.append(unidecode(str(text)).translate(trans_table))
             sents_cleaned_dict[idx] = unidecode(str(text)).translate(trans_table)
-        return sents_cleaned_dict
-
-    def clean_sentences(self,sentences: list,specials="""_-@*#'"/\\""",replace=' '):
-        """Cleans sentences dict and returns dict of cleaned sentences.
-
-        :param: sentences: dict of idx:label
-        :returns:
-            sents_cleaned_dict : contains cleaned sentences.
-        """
-        sents_cleaned_dict = []
-        trans_table = self.make_trans_table(specials=specials,replace=replace)
-        for text in sentences:
-            sents_cleaned_dict.append(unidecode(str(text)).translate(trans_table))
-        return sents_cleaned_dict
+        return sents_cleaned_dict, sents_cleaned_list
 
     @staticmethod
     def remove_wiki_first_lines(doc: str,num_lines=6):
@@ -259,24 +392,23 @@ class Text_Process(object):
         :param subtract: Removes this value from idf scores. Sometimes needed to get better scores.
         :return: Dict of token to idf score.
         """
-        from sklearn.feature_extraction.text import TfidfVectorizer
-
-        ## Ussing TfidfVectorizer with spacy tokenizer; same tokenizer should be used everywhere.
-        vectorizer = TfidfVectorizer(decode_error='ignore',lowercase=False,smooth_idf=False,
-                                     tokenizer=self.tokenizer_spacy)
-        tfidf_matrix = vectorizer.fit_transform(docs)
-        idf = vectorizer.idf_
-        idf_dict = dict(zip(vectorizer.get_feature_names(),idf - subtract))  ## Subtract 1 from idf to get better scores
-
         if isfile(join(self.dataset_dir,self.dataset_name + "_idf_dict.json")):
-            File_Util.load_json(filename=self.dataset_name + "_idf_dict",file_path=self.dataset_dir)
+            idf_dict = File_Util.load_json(filename=self.dataset_name + "_idf_dict",filepath=self.dataset_dir)
         else:
-            File_Util.save_json(idf_dict,filename=self.dataset_name + "_idf_dict",file_path=self.dataset_dir)
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            ## Using TfidfVectorizer with spacy tokenizer; same tokenizer should be used everywhere.
+            vectorizer = TfidfVectorizer(decode_error='ignore',lowercase=False,smooth_idf=False,
+                                         tokenizer=self.tokenizer_spacy)
+            tfidf_matrix = vectorizer.fit_transform(docs)
+            idf = vectorizer.idf_
+            idf_dict = dict(zip(vectorizer.get_feature_names(),idf - subtract))  ## Subtract 1 from idf to get better scores
+
+            File_Util.save_json(idf_dict,filename=self.dataset_name + "_idf_dict",filepath=self.dataset_dir)
 
         return idf_dict
 
     @staticmethod
-    def remove_wiki_categories(doc: list):
+    def remove_wiki_cats(doc: list):
         """ Removes category (and some irrelevant and repetitive) information from wiki pages.
 
         :param doc:
@@ -359,20 +491,20 @@ class Text_Process(object):
         return doc_cleaned
 
     @staticmethod
-    def read_stopwords(file_path: str = '',file_name: str = 'stopwords_en.txt',encoding: str = "iso-8859-1") -> list:
+    def read_stopwords(filepath: str = '',file_name: str = 'stopwords_en.txt',encoding: str = "iso-8859-1") -> list:
         """ Reads the stopwords list from file, useful for customized stopwords.
 
-        :param file_path:
+        :param filepath:
         :param file_name:
         :param encoding:
         """
         so_list = []
-        if isfile(join(file_path,file_name)):
-            with open(join(file_path,file_name),encoding=encoding) as so_ptr:
+        if isfile(join(filepath,file_name)):
+            with open(join(filepath,file_name),encoding=encoding) as so_ptr:
                 for s_word in so_ptr:
                     so_list.append(s_word.strip())
         else:
-            raise Exception("File not found at: [{}]".format(join(file_path,file_name)))
+            raise Exception("File not found at: [{}]".format(join(filepath,file_name)))
 
         return so_list
 
@@ -471,13 +603,13 @@ class Text_Process(object):
 
     @staticmethod
     def sents_split(doc: str):
-        """ Splits the document into sentences and remove stopwords.
+        """ Splits the document into txts and remove stopwords.
 
         :param doc:
         """
         doc_spacy = spacy_en(doc)
-        sentences = list(doc_spacy.sents)
-        return sentences
+        txts = list(doc_spacy.sents)
+        return txts
 
     @staticmethod
     def spacy_sents2string(doc: list):
@@ -517,7 +649,7 @@ class Text_Process(object):
         :param doc:
         :param labels:
         """
-        labels_indices = {}
+        labels_indices = OrderedDict()
         for lbl in labels:
             for m in re.finditer(lbl,doc):
                 if lbl not in labels_indices:
@@ -751,7 +883,7 @@ def clean_wiki2(doc: list,num_lines: int = 6) -> str:
     doc = cls.remove_wiki_headings(doc)
     doc = cls.remove_nonascii(doc)  ## Remove all non-ascii characters
     doc = cls.remove_patterns(doc)
-    # doc = cls.remove_patterns(doc, pattern=re.compile(r"\""))  ## Removes " with sentences
+    # doc = cls.remove_patterns(doc, pattern=re.compile(r"\""))  ## Removes " with txts
     doc = cls.remove_symbols(doc)
     # doc = cls.format_digits(doc)
     doc = cls.sents_split(" ".join(doc))

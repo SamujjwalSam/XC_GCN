@@ -30,7 +30,7 @@ seed = 0
 global configuration
 configuration = {
     "data"        :{
-        "dataset_name":"Wiki10-31K",
+        "dataset_name":"Wiki10-31K_onehot",
         "val_split"   :0.1,
         "test_split"  :0.3,
         "show_stat"   :False
@@ -53,9 +53,10 @@ configuration = {
         "num_folds"           :5,
         "max_sequence_length" :100,
         "max_vec_len"         :5000,
-        "dropout"             :0.1,
+        "dropout"             :0.5,
         "dropout_external"    :0.0,
         "clipnorm"            :1.0,
+        "hid_size"            :150,
 
         "g_encoder"           :"cnn",
         "use_cuda"            :False,
@@ -69,9 +70,9 @@ configuration = {
         "fce"                 :True,
         "optimizer"           :{
             "optimizer_type":"adam",
-            "learning_rate" :3e-4,
+            "learning_rate" :0.01,
             "lr_decay"      :0,
-            "weight_decay"  :0,
+            "weight_decay"  :5e-4,
             "momentum"      :0.9,
             "dampening"     :0.9,
             "alpha"         :0.99,
@@ -83,7 +84,7 @@ configuration = {
     },
 
     "sampling"    :{
-        "num_epochs"           :20,
+        "num_epochs"           :2000,
         "num_train_epoch"      :5,
         "batch_size"           :2,
         "categories_per_batch" :2,
@@ -93,7 +94,7 @@ configuration = {
     },
 
     "graph"       :{
-        "stats"         :True,
+        "stats"         :False,
         "min_common"    :1,
         "plot_name"     :"label_vecs.jpg",
         "level"         :1,
@@ -109,7 +110,7 @@ configuration = {
         "min_count"         :1,
         "negative"          :10,
         "num_chunks"        :10,
-        "vectorizer"        :"doc2vec",
+        "vectorizer"        :"word2vec",
         "sample_repeat_mode":"append",
         "input_size"        :300,
         "sim_words"         :5,
@@ -131,7 +132,7 @@ configuration = {
             "Windows":"D:\\Datasets\\Extreme Classification",
             "OSX"    :"/home/cs16resch01001/datasets/Extreme Classification",
             "Linux"  :{
-                "sam"           :"/media/sam/Data/Datasets/pretrain",  ## Code path: /home/cs14resch11001/codes/MNXC
+                "sam"           :"/home/sam/Datasets/pretrain",  ## Code path: /home/cs14resch11001/codes/MNXC
                 "cs14resch11001":"/raid/ravi/pretrain"
             }
         },
@@ -140,7 +141,7 @@ configuration = {
             "Windows":"D:\\Datasets\\Extreme Classification",
             "OSX"    :"/home/cs16resch01001/datasets/Extreme Classification",
             "Linux"  :{
-                "sam"           :"/media/sam/Data/Datasets/Extreme Classification",
+                "sam"           :"/home/sam/Datasets/Extreme Classification",
                 "cs14resch11001":"/raid/ravi/Datasets/Extreme Classification"
             }
         }

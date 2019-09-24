@@ -34,44 +34,44 @@ class HTMLLoader(torch.utils.data.Dataset):
 
     Datasets: Wiki10-31K
 
-    sentences : Wikipedia english texts after parsing and cleaning.
-    sentences = {"id1": "wiki_text_1", "id2": "wiki_text_2"}
+    txts : Wikipedia english texts after parsing and cleaning.
+    txts = {"id1": "wiki_text_1", "id2": "wiki_text_2"}
 
-    classes   : OrderedDict of id to classes.
-    classes = {"id1": [class_id_1,class_id_2],"id2": [class_id_2,class_id_10]}
+    sample2cats   : OrderedDict of id to classes.
+    sample2cats = {"id1": [class_id_1,class_id_2],"id2": [class_id_2,class_id_10]}
 
-    categories : Dict of class texts.
-    categories = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
+    cats : Dict of class texts.
+    cats = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
 
     samples : {
-        "sentences":"",
+        "txts":"",
         "classes":""
         }
     """
 
     def __init__(self,dataset_name=config["data"]["dataset_name"],
-                 data_dir: str = config["paths"]["dataset_dir"][plat][user]):
+                 dataset_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """
         Initializes the html loader.
 
         Args:
-            data_dir : Path to directory of the dataset.
+            dataset_dir : Path to directory of the dataset.
             dataset_name : Name of the dataset.
         """
         super(HTMLLoader,self).__init__()
         self.dataset_name = dataset_name
-        # self.data_dir = join(data_dir,self.dataset_name)
-        self.data_dir = data_dir
-        self.raw_html_dir = join(self.data_dir,dataset_name + "_RawData")
-        self.raw_txt_dir = join(self.data_dir,"txt_files")
-        logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name,self.data_dir))
+        # self.dataset_dir = join(dataset_dir,self.dataset_name)
+        self.dataset_dir = dataset_dir
+        self.raw_html_dir = join(self.dataset_dir,dataset_name + "_RawData")
+        self.raw_txt_dir = join(self.dataset_dir,"txt_files")
+        logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name,self.dataset_dir))
         self.clean = Text_Process()
-        self.sentences,self.classes,self.categories = self.gen_dicts()
+        self.txts,self.classes,self.cats = self.gen_dicts()
 
     def gen_dicts(self):
-        """Filters sentences, classes and categories from wikipedia text.
+        """Filters txts, sample2cats and cats from wikipedia text.
 
-        :return: Dict of sentences, classes and categories filtered from samples.
+        :return: Dict of txts, sample2cats and cats filtered from samples.
         """
 
         if isdir(self.raw_txt_dir):
@@ -85,50 +85,50 @@ class HTMLLoader(torch.utils.data.Dataset):
 
         classes = OrderedDict()
         hid_classes = OrderedDict()
-        categories = OrderedDict()
-        hid_categories = OrderedDict()
-        sentences = OrderedDict()
+        cats = OrderedDict()
+        hid_cats = OrderedDict()
+        txts = OrderedDict()
         cat_idx = 0
         hid_cat_idx = 0
         no_cat_ids = []  # List to store failed parsing cases.
         for doc_id,txt in self.samples.items():
             txt = list(filter(None,txt))  # Removing empty items
-            doc,filtered_categories,filtered_hid_categories = self.clean.filter_html_categories_reverse(txt)
-            ## assert filtered_categories, "No category information was found for doc_id: [{0}].".format(doc_id)
-            if filtered_categories:  ## Check at least one category was successfully filtered from html file.
-                sentences[doc_id] = clean_wiki(doc)  ## Removing category information and other texts from html pages.
-                for lbl in filtered_categories:
-                    if lbl not in categories:  ## If lbl does not exists in categories already, add it and assign a
+            doc,filtered_cats,filtered_hid_cats = self.clean.filter_html_cats_reverse(txt)
+            ## assert filtered_cats, "No category information was found for doc_id: [{0}].".format(doc_id)
+            if filtered_cats:  ## Check at least one category was successfully filtered from html file.
+                txts[doc_id] = clean_wiki(doc)  ## Removing category information and other texts from html pages.
+                for lbl in filtered_cats:
+                    if lbl not in cats:  ## If lbl does not exists in cats already, add it and assign a
                         ## new category index.
-                        categories[lbl] = cat_idx
+                        cats[lbl] = cat_idx
                         cat_idx += 1
                     if doc_id in classes:  ## Check if doc_id exists, append if yes.
-                        classes[doc_id].append(categories[lbl])
+                        classes[doc_id].append(cats[lbl])
                     else:  ## Create entry for doc_id if does not exist.
-                        classes[doc_id] = [categories[lbl]]
+                        classes[doc_id] = [cats[lbl]]
             else:  ## If no category was found, store the doc_id in a separate place for later inspection.
-                logger.warn("No categories found in document: [{}].".format(doc_id))
+                logger.warn("No cats found in document: [{}].".format(doc_id))
                 no_cat_ids.append(doc_id)
 
             ## Shall we use hidden category information?
-            if filtered_hid_categories:  ## Check at least one hidden category was successfully filtered from html file.
-                for lbl in filtered_hid_categories:
-                    if lbl not in hid_categories:  ## If lbl does not exists in hid_categories already, add it and
+            if filtered_hid_cats:  ## Check at least one hidden category was successfully filtered from html file.
+                for lbl in filtered_hid_cats:
+                    if lbl not in hid_cats:  ## If lbl does not exists in hid_cats already, add it and
                         ## assign a new hid_category index.
-                        hid_categories[lbl] = hid_cat_idx
+                        hid_cats[lbl] = hid_cat_idx
                         hid_cat_idx += 1
                     if doc_id in hid_classes:  ## Check if doc_id exists, append if yes.
-                        hid_classes[doc_id].append(hid_categories[lbl])
+                        hid_classes[doc_id].append(hid_cats[lbl])
                     else:  ## Create entry for doc_id if does not exist.
-                        hid_classes[doc_id] = [hid_categories[lbl]]
-        logger.warn("No categories found for: [{}] documents. Storing ids for reference in file '_no_cat_ids'."
+                        hid_classes[doc_id] = [hid_cats[lbl]]
+        logger.warn("No cats found for: [{}] documents. Storing ids for reference in file '_no_cat_ids'."
                     .format(len(no_cat_ids)))
-        File_Util.save_json(hid_classes,self.dataset_name + "_hid_classes",file_path=self.data_dir)
-        File_Util.save_json(hid_categories,self.dataset_name + "_hid_categories",file_path=self.data_dir)
-        File_Util.save_json(no_cat_ids,self.dataset_name + "_no_cat_ids",file_path=self.data_dir)
-        logger.info("Number of sentences: [{}], classes: [{}] and categories: [{}]."
-                    .format(len(sentences),len(classes),len(categories)))
-        return sentences,classes,categories
+        File_Util.save_json(hid_classes,self.dataset_name + "_hid_classes",filepath=self.dataset_dir)
+        File_Util.save_json(hid_cats,self.dataset_name + "_hid_cats",filepath=self.dataset_dir)
+        File_Util.save_json(no_cat_ids,self.dataset_name + "_no_cat_ids",filepath=self.dataset_dir)
+        logger.info("Number of txts: [{}], sample2cats: [{}] and cats: [{}]."
+                    .format(len(txts),len(classes),len(cats)))
+        return txts,classes,cats
 
     def read_txt_dir(self,raw_txt_dir: str,encoding: str = "iso-8859-1") -> OrderedDict:
         """
@@ -137,7 +137,7 @@ class HTMLLoader(torch.utils.data.Dataset):
         :param raw_txt_dir:
         :param encoding:
         :param html_parser:
-        :param data_dir: Path to directory of html files.
+        :param dataset_dir: Path to directory of html files.
         """
         data = OrderedDict()
         if raw_txt_dir is None: raw_txt_dir = self.raw_txt_dir
@@ -199,22 +199,22 @@ class HTMLLoader(torch.utils.data.Dataset):
         :param specials:
         :param encoding:
         :param html_parser:
-        :param data_dir: Path to directory of html files.
+        :param dataset_dir: Path to directory of html files.
         """
         from unidecode import unidecode
 
         data = OrderedDict()
         # logger.debug("Raw HTML path: {}".format(self.raw_html_dir))
-        makedirs(join(self.data_dir,"txt_files"),exist_ok=True)
+        makedirs(join(self.dataset_dir,"txt_files"),exist_ok=True)
         if isdir(self.raw_html_dir):
             trans_table = self.clean.make_trans_table(specials=specials,
-                                                      replace=replace)  ## Creating mapping to clean sentences.
+                                                      replace=replace)  ## Creating mapping to clean txts.
             for i in listdir(self.raw_html_dir):
                 if isfile(join(self.raw_html_dir,i)):
                     with open(join(self.raw_html_dir,i),encoding=encoding) as html_ptr:
                         h_content = html_parser.handle(html_ptr.read())
                         clean_text = unidecode(str(h_content).splitlines()).translate(trans_table)
-                        File_Util.write_file(clean_text,i,file_path=join(self.data_dir,"txt_files"))
+                        File_Util.write_file(clean_text,i,filepath=join(self.dataset_dir,"txt_files"))
                         data[str(i)] = clean_text
         return data
 
@@ -222,25 +222,25 @@ class HTMLLoader(torch.utils.data.Dataset):
         """
         Function to get the entire dataset
         """
-        return self.sentences,self.classes,self.categories
+        return self.txts,self.classes,self.cats
 
-    def get_sentences(self):
+    def get_txts(self):
         """
         Function to get the entire set of features
         """
-        return self.sentences
+        return self.txts
 
     def get_classes(self):
         """
-        Function to get the entire set of classes.
+        Function to get the entire set of sample2cats.
         """
         return self.classes
 
-    def get_categories(self) -> dict:
+    def get_cats(self) -> dict:
         """
-        Function to get the entire set of categories
+        Function to get the entire set of cats
         """
-        return self.categories
+        return self.cats
 
 
 def main():
@@ -828,7 +828,7 @@ Hall of Fame inductees | Women in jazz | Musicians from Maryland | Columbia
 Records artists | Decca Records artists | Traditional pop music singers |
 Alcohol-related deaths in New York
 
-Hidden categories: Articles needing additional references from October 2006
+Hidden cats: Articles needing additional references from October 2006
 
 ##### Views
 
@@ -932,12 +932,12 @@ registered 501(c)(3) tax-deductible nonprofit charity.
 
 """.splitlines()
     cls = HTMLLoader()
-    returned = cls.filter_html_categories(doc)
+    returned = cls.filter_html_cats(doc)
 
-    sentences_val,classes_val,categories_val = cls.get_data()
-    logger.print_dict(sentences_val)
-    logger.print_dict(classes_val)
-    logger.print_dict(categories_val)
+    txts_val,sample2cats_val,cats_val = cls.get_data()
+    logger.print_dict(txts_val)
+    logger.print_dict(sample2cats_val)
+    logger.print_dict(cats_val)
 
 
 if __name__ == '__main__':
