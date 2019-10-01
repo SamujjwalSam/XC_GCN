@@ -254,49 +254,26 @@ class Common_Data_Handler:
                 cat2samples_map[cat].append(sample_id)
         return cat2samples_map
 
-    def find_samples_with_single_class(self,classes_dict: dict = None,cat2samples_map=None,remove_count=1):
-        """ Finds categories with very few [remove_count] samples.
+    def find_cats_with_few_samples(self,sample2cats_map: dict = None,cat2samples_map: dict = None,remove_count=20):
+        """ Finds categories with <= [remove_count] samples. Default few-shot = <=20.
 
         :returns:
-            cat2samples_filtered: Category to samples map without tail categories.
-            tail_cats: List of tail category ids.
+            cat2samples_few: Category to samples map without tail categories.
+            tail_cats: List of tail cat ids.
             samples_with_tail_cats: Set of sample ids which belong to tail categories.
         """
-        if cat2samples_map is None: cat2samples_map = self.cat2samples(classes_dict)
-
+        if cat2samples_map is None: cat2samples_map = self.gen_cat2samples_map(sample2cats_map)
         tail_cats = []
         samples_with_tail_cats = set()
-        cat2samples_filtered = OrderedDict()
-        for category,sample_list in cat2samples_map.items():
-            if len(sample_list) > remove_count:
-                cat2samples_filtered[category] = len(sample_list)
+        cat2samples_few = OrderedDict()
+        for cat,sample_list in cat2samples_map.items():
+            if len(sample_list) <= remove_count:
+                cat2samples_few[cat] = len(sample_list)
             else:
-                tail_cats.append(category)
+                tail_cats.append(cat)
                 samples_with_tail_cats.update(sample_list)
 
-        return tail_cats,samples_with_tail_cats,cat2samples_filtered
-
-    def find_classes_with_single_sample(self,classes_dict: dict = None,cat2samples_map=None,remove_count=1):
-        """ Finds categories with very few [remove_count] samples.
-
-        :returns:
-            cat2samples_filtered: Category to samples map without tail categories.
-            tail_cats: List of tail category ids.
-            samples_with_tail_cats: Set of sample ids which belong to tail categories.
-        """
-        if cat2samples_map is None: cat2samples_map = self.cat2samples(classes_dict)
-
-        tail_cats = []
-        samples_with_tail_cats = set()
-        cat2samples_filtered = OrderedDict()
-        for category,sample_list in cat2samples_map.items():
-            if len(sample_list) > remove_count:
-                cat2samples_filtered[category] = len(sample_list)
-            else:
-                tail_cats.append(category)
-                samples_with_tail_cats.update(sample_list)
-
-        return tail_cats,samples_with_tail_cats,cat2samples_filtered
+        return tail_cats,samples_with_tail_cats,cat2samples_few
 
     def get_data(self,load_type: str = "all",calculate_idf=False) -> (OrderedDict,OrderedDict,OrderedDict):
         """:returns loaded dictionaries based on "load_type" value. Loads all if not provided."""
