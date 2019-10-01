@@ -117,26 +117,40 @@ class Prepare_Data:
                 cat2id[cat].append(k)
         return cat2id
 
-    def pre_load_data(self,load_type: str = 'all',return_maps: bool = False):
-        """
-        Prepares (loads, vectorize, etc) the data provided by param "load_type".
+    def create_vec_maps(self,txts:dict=None,cats:dict=None):
+        """ Maps text and categories to their vector representation.
 
-        :param return_maps:
-        :param load_type: Which data to load: Options: ['train', 'val', 'test']
+        :param txts:
+        :param cats:
+        :return:
         """
-        if load_type is 'train':  ## Get the idf dict for train documents but not for others.
-            self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all,\
-            self.idf_dict = self.dataset_loader.get_data(load_type=load_type)
+        logger.debug(join(self.dataset_dir,self.dataset_name,self.dataset_name + "_txts2vec_map.pkl"))
+        if isfile(join(self.dataset_dir,self.dataset_name,self.dataset_name + "_txts2vec_map.pkl"))\
+                and isfile(join(self.dataset_dir,self.dataset_name,self.dataset_name + "_cats2vec_map.pkl")):
+            logger.info("Loading pre-processed mappings from: [{}] and [{}]"
+                        .format(join(self.dataset_dir,self.dataset_name,self.dataset_name + "_txts2vec_map.pkl"),
+                                join(self.dataset_dir,self.dataset_name,self.dataset_name + "_cat2vec_map.pkl")))
+            txts2vec_map = File_Util.load_pickle(self.dataset_name + "_txts2vec_map",
+                                                 filepath=join(self.dataset_dir,self.dataset_name))
+            cats2vec_map = File_Util.load_pickle(self.dataset_name + "_cats2vec_map",
+                                                 filepath=join(self.dataset_dir,self.dataset_name))
         else:
-            self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all =\
-                self.dataset_loader.get_data(load_type=load_type)
-        self.remain_sample_ids = list(self.sentences_selected.keys())
-        self.cat2sample_map = self.cat2samples(self.classes_selected)
-        self.remain_cat_ids = list(self.categories_selected.keys())
-        logger.info("[{}] data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(load_type,len(self.sentences_selected),len(self.classes_selected),
-                            len(self.categories_selected)))
-        logger.info("Total category count: [{}]".format(len(self.categories_all)))
+            if txts is None or cats is None:
+                txts,_,_,cats = self.load_raw_data(load_type='all',return_values=True)
+            ## Generate txts2vec_map and cats2vec_map
+            logger.info("Generating pre-processed mappings.")
+            txts2vec_map = self.txt_process.gen_sample2vec_map(txts=txts)
+            catid2cattxt = File_Util.inverse_dict_elm(cats)
+            cats2vec_map = self.txt_process.gen_cats2vec_map(cats=catid2cattxt)
+
+            logger.info("Saving pre-processed mappings to: [{}] and [{}]"
+                        .format(join(self.dataset_dir,self.dataset_name,self.dataset_name + "_txts2vec_map.pkl"),
+                                join(self.dataset_dir,self.dataset_name,self.dataset_name + "_cat2vec_map.pkl")))
+            File_Util.save_pickle(txts2vec_map,self.dataset_name + "_txts2vec_map",
+                                  filepath=join(self.dataset_dir,self.dataset_name))
+            File_Util.save_pickle(cats2vec_map,self.dataset_name + "_cats2vec_map",
+                                  filepath=join(self.dataset_dir,self.dataset_name))
+        return txts2vec_map,cats2vec_map
 
         ## MultiLabelBinarizer only takes list of lists as input. Need to convert our list of ints to list of lists.
         cat_ids = []
