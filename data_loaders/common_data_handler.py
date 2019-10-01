@@ -506,8 +506,74 @@ class Common_Data_Handler:
 
         return txts_one,classes_one,categories_one
 
-    def _create_pointer_data(self,txts: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (
-    OrderedDict,OrderedDict,OrderedDict):
+    def cat_token_counts(self,catid2cattxt_map=None):
+        """ Counts the number of tokens in categories.
+
+        :return:
+        :param catid2cattxt_map:
+        """
+        if catid2cattxt_map is None: catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",
+                                                                            filepath=self.dataset_dir)
+        cat_word_counts = {}
+        for cat in catid2cattxt_map:
+            cat_word_counts[cat] = len(self.clean.tokenizer_spacy(cat))
+
+        return cat_word_counts
+
+    def json2df(self,txts_all: dict = None,sample2cats_all: dict = None):
+        """ Converts existing multiple json files and returns a single pandas dataframe.
+
+        :param txts_all:
+        :param sample2cats_all:
+        """
+        import pandas as pd
+
+        if exists(join(self.dataset_dir,self.dataset_name + "_df.csv")):
+            df = pd.read_csv(filepath_or_buffer=join(self.dataset_dir,self.dataset_name + "_df.csv"))
+            df = df[~df['txts'].isna()]
+        else:
+            if txts_all is None or sample2cats_all is None:
+                txts_all,sample2cats_all,cats_all,cats_all = self.get_data(load_type="all")
+            catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
+            txts_all_list,sample2cats_all_list,idxs,sample2catstext_all_list = [],[],[],[]
+            for idx in sample2cats_all.keys():
+                idxs.append(idx)
+                txts_all_list.append(txts_all[idx])
+                sample2cats_all_list.append(sample2cats_all[idx])
+                for lbl in sample2cats_all[idx]:
+                    sample2catstext_all_list.append([catid2cattxt_map[str(lbl)]])
+
+            df = pd.DataFrame.from_dict({"idx"    :idxs,
+                                         "txts"   :txts_all_list,
+                                         "lbl_idx":sample2cats_all_list,
+                                         "lbls"   :sample2catstext_all_list})
+            df = df[~df['txts'].isna()]
+            df.to_csv(path_or_buf=join(self.dataset_dir,self.dataset_name + "_df.csv"))
+        logger.info("Data shape = {} ".format(df.shape))
+        return df
+
+    def check_cat_present_txt(self,txts: OrderedDict,classes: OrderedDict,
+                              catid2cattxt_map: OrderedDict = None) -> OrderedDict:
+        """Generates a dict of dicts containing the positions of all categories within each text.
+
+        :param classes:
+        :param txts:
+        :param catid2cattxt_map:
+        :return:
+        """
+        if catid2cattxt_map is None:
+            catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
+        label_ptrs = OrderedDict()
+        for doc_id,txt in txts.items():
+            label_ptrs[doc_id] = OrderedDict()
+            for lbl_id in catid2cattxt_map:
+                label_ptrs[doc_id][lbl_id] = self.clean.find_label_occurrences(txt,catid2cattxt_map[str(lbl_id)])
+                label_ptrs[doc_id]["true"] = classes[doc_id]
+
+        return label_ptrs
+
+    def _create_pointer_data(self,txts: OrderedDict,classes: OrderedDict,catid2cattxt_map: OrderedDict = None) -> (
+            OrderedDict,OrderedDict,OrderedDict):
         """ Creates pointer network type dataset, i.e. labels are marked within document text. """
         if catid2cattxt_map is None:
             catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
@@ -525,6 +591,58 @@ class Common_Data_Handler:
                         categories_ptr[lbl_id] = catid2cattxt_map[str(lbl_id)]
 
         return txts_ptr,classes_ptr,categories_ptr
+
+    def _create_fewshot_data(self,txts: OrderedDict,classes: OrderedDict,catid2cattxt_map: OrderedDict = None) -> (
+            OrderedDict,OrderedDict,OrderedDict):
+        """Creates few-shot dataset, i.e. categories with <= 20 samples.
+
+        :param classes:
+        :param txts:
+        :param catid2cattxt_map:
+        :return:
+        """
+        if catid2cattxt_map is None:
+            catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
+
+        tail_cats,samples_with_tail_cats,cat2samples_filtered = self.find_cats_with_few_samples(sample2cats_map=classes,
+                                                                                                cat2samples_map=None)
+        txts_few = OrderedDict()
+        classes_few = OrderedDict()
+        categories_few = OrderedDict()
+        for doc_id,lbls in classes.items():
+            if len(lbls) == 1:
+                classes_few[doc_id] = lbls
+                txts_few[doc_id] = txts[doc_id]
+                for lbl in classes_few[doc_id]:
+                    if lbl not in categories_few:
+                        categories_few[catid2cattxt_map[str(lbl)]] = lbl
+
+        return txts_few,classes_few,categories_few
+
+    def _create_firstsent_data(self,txts: OrderedDict,classes: OrderedDict,catid2cattxt_map: OrderedDict = None) -> (
+            OrderedDict,OrderedDict,OrderedDict):
+        """Creates a version of wikipedia dataset with only first sentences and discarding the text.
+
+        :param classes:
+        :param txts:
+        :param catid2cattxt_map:
+        :return:
+        """
+        if catid2cattxt_map is None:
+            catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
+
+        txts_firstsent = OrderedDict()
+        classes_firstsent = OrderedDict()
+        categories_firstsent = OrderedDict()
+        for doc_id,lbls in classes.items():
+            if len(lbls) == 1:
+                classes_firstsent[doc_id] = lbls
+                txts_firstsent[doc_id] = txts[doc_id]
+                for lbl in classes_firstsent[doc_id]:
+                    if lbl not in categories_firstsent:
+                        categories_firstsent[catid2cattxt_map[str(lbl)]] = lbl
+
+        return txts_firstsent,classes_firstsent,categories_firstsent
 
 
 def main():
