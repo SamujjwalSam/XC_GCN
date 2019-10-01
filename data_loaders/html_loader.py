@@ -147,6 +147,7 @@ class HTMLLoader(torch.utils.data.Dataset):
                 if isfile(join(raw_txt_dir,i)) and i.endswith(".txt"):
                     with open(join(raw_txt_dir,i),encoding=encoding) as txt_ptr:
                         data[str(i[:-4])] = str(txt_ptr.read()).splitlines()  ## [:-4] removes the ".txt" from filename.
+        else: return False
         return data
 
     @staticmethod

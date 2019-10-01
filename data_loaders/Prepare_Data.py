@@ -83,7 +83,7 @@ class Prepare_Data:
         for k in keys:
             batch_x.append(X[k])
             batch_y.append(Y[k])
-        return batch_x,batch_y
+        return np.stack(batch_x),np.stack(batch_y)
 
     def get_features(self,return_cat_indices=False,multi_label=False):
         """ Generates feature vectors of input documents. """
@@ -140,7 +140,7 @@ class Prepare_Data:
 
         ## MultiLabelBinarizer only takes list of lists as input. Need to convert our list of ints to list of lists.
         cat_ids = []
-        for cat_id in self.categories_all.values():
+        for cat_id in self.cats_all.values():
             cat_ids.append([cat_id])
         self.mlb.fit(cat_ids)
 
@@ -344,7 +344,7 @@ if __name__ == '__main__':
                                   dataset_name=config["data"]["dataset_name"],
                                   dataset_dir=config["paths"]["dataset_dir"][plat][user])
 
-    data_formatter.pre_load_data(load_type='val')
+    data_formatter.load_raw_data(load_type='val')
     Adj = data_formatter.load_graph_data()
     features,labels = data_formatter.get_input_batch()
     logger.debug(Adj.shape)

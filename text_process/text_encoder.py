@@ -26,6 +26,8 @@ from gensim.models.keyedvectors import KeyedVectors
 from gensim.test.utils import get_tmpfile
 from gensim.utils import simple_preprocess
 
+from pytorch_pretrained_bert import BertTokenizer,BertModel,BertForMaskedLM
+
 from logger import logger
 from config import configuration as config
 from config import platform as plat
@@ -98,7 +100,8 @@ class Text_Encoder:
 
     def load_doc2vec_model(self,documents,vector_size=config["prep_vecs"]["input_size"],window=config["prep_vecs"]["window"],
                            min_count=config["prep_vecs"]["min_count"],workers=config["text_process"]["workers"],seed=0,
-                           clean_tmp=False,save_model=True,doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
+                           clean_tmp=False,save_model=True,
+                           doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
                            doc2vec_dir=join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"]),
                            negative=config["prep_vecs"]["negative"]):
         """
@@ -168,7 +171,7 @@ class Text_Encoder:
         return doc2vectors
 
     def load_word2vec(self,model_dir: str = config["paths"]["pretrain_dir"][plat][user],model_type: str = 'googlenews',
-                      encoding: str = 'latin-1',model_file_name: str = "GoogleNews-vectors-negative300.bin") -> \
+                      encoding: str = 'latin-1',model_file_name: str = "GoogleNews-vectors-negative300.bin") ->\
             gensim.models.keyedvectors.Word2VecKeyedVectors:
         """
         Loads Word2Vec model and returns initial weights for embedding layer.
@@ -179,7 +182,8 @@ class Text_Encoder:
         """
         if self.pretrain_model is not None: return self.pretrain_model
 
-        assert exists(join(model_dir,model_file_name)), "Model file not found at: [{}].".format(join(model_dir,model_file_name))
+        assert exists(join(model_dir,model_file_name)),"Model file not found at: [{}].".format(
+            join(model_dir,model_file_name))
         logger.debug("Using [{0}] model from [{1}]".format(model_type,join(model_dir,model_file_name)))
         if model_type == 'googlenews' or model_type == "fasttext_wiki":
             if exists(join(model_dir,model_file_name + '.bin')):

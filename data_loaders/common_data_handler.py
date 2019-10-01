@@ -17,7 +17,7 @@ __classes__     : Common_Data_Handler,
 
 from gc import collect
 from os import makedirs
-from os.path import join,isfile
+from os.path import join,isfile,exists
 from collections import OrderedDict
 
 from data_loaders import html_loader as html
@@ -144,7 +144,7 @@ class Common_Data_Handler:
         else:
             # Splitting data into train, validation and test sets.
             self.txts_train,self.sample2cats_train,self.cats_sel,self.txts_val,self.sample2cats_val,\
-            self.cats_val,self.txts_test,self.sample2cats_test,self.cats_test,cat_id2text_map =\
+            self.cats_val,self.txts_test,self.sample2cats_test,self.cats_test,catid2cattxt_map =\
                 self.split_data(txts=txts,classes=classes,categories=categories)
             txts,classes,categories = None,None,None  # Remove large dicts and free up memory.
             collect()
@@ -154,11 +154,12 @@ class Common_Data_Handler:
             File_Util.save_json(self.txts_val,self.dataset_name + "_txts_val",filepath=self.dataset_dir)
             File_Util.save_json(self.sample2cats_val,self.dataset_name + "_sample2cats_val",filepath=self.dataset_dir)
             File_Util.save_json(self.txts_train,self.dataset_name + "_txts_train",filepath=self.dataset_dir)
-            File_Util.save_json(self.sample2cats_train,self.dataset_name + "_sample2cats_train",filepath=self.dataset_dir)
+            File_Util.save_json(self.sample2cats_train,self.dataset_name + "_sample2cats_train",
+                                filepath=self.dataset_dir)
             File_Util.save_json(self.cats_sel,self.dataset_name + "_cats_train",filepath=self.dataset_dir)
             File_Util.save_json(self.cats_val,self.dataset_name + "_cats_val",filepath=self.dataset_dir)
             File_Util.save_json(self.cats_test,self.dataset_name + "_cats_test",filepath=self.dataset_dir)
-            File_Util.save_json(cat_id2text_map,self.dataset_name + "_cat_id2text_map",filepath=self.dataset_dir)
+            File_Util.save_json(catid2cattxt_map,self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
             return self.txts_train,self.sample2cats_train,self.cats_sel,self.txts_val,self.sample2cats_val,\
                    self.cats_val,self.txts_test,self.sample2cats_test,self.cats_test
 
@@ -184,8 +185,7 @@ class Common_Data_Handler:
     def split_data(self,txts: OrderedDict,classes: OrderedDict,categories: OrderedDict,
                    test_split: int = config["data"]["test_split"],
                    val_split: int = config["data"]["val_split"]):
-        """
-        Splits input data into train, val and test.
+        """ Splits input data into train, val and test.
 
         :return:
         :param categories:
@@ -204,23 +204,23 @@ class Common_Data_Handler:
             File_Util.split_dict(sample2cats_train,txts_train,batch_size=int(len(txts_train) * val_split))
         logger.info("Validation count: [{}]. Train count: [{}]".format(len(sample2cats_val),len(sample2cats_train)))
 
-        if isfile(join(self.dataset_dir,self.dataset_name + "_cat_id2text_map.json")):
-            cat_id2text_map = File_Util.load_json(self.dataset_name + "_cat_id2text_map",filepath=self.dataset_dir)
+        if isfile(join(self.dataset_dir,self.dataset_name + "_catid2cattxt_map.json")):
+            catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
             # Integer keys are converted to string when saving as JSON. Converting back to integer.
-            cat_id2text_map_int = OrderedDict()
-            for k,v in cat_id2text_map.items():
-                cat_id2text_map_int[int(k)] = v
-            cat_id2text_map = cat_id2text_map_int
+            catid2cattxt_map_int = OrderedDict()
+            for k,v in catid2cattxt_map.items():
+                catid2cattxt_map_int[int(k)] = v
+            catid2cattxt_map = catid2cattxt_map_int
         else:
             logger.info("Generating inverted categories.")
-            cat_id2text_map = File_Util.inverse_dict_elm(categories)
+            catid2cattxt_map = File_Util.inverse_dict_elm(categories)
 
         logger.info("Creating train categories.")
         cats_train = OrderedDict()
         for k,v in sample2cats_train.items():
             for cat_id in v:
                 if cat_id not in cats_train:
-                    cats_train[cat_id] = cat_id2text_map[cat_id]
+                    cats_train[cat_id] = catid2cattxt_map[cat_id]
         cats_train = cats_train
 
         logger.info("Creating validation categories.")
@@ -228,7 +228,7 @@ class Common_Data_Handler:
         for k,v in sample2cats_val.items():
             for cat_id in v:
                 if cat_id not in cats_val:
-                    cats_val[cat_id] = cat_id2text_map[cat_id]
+                    cats_val[cat_id] = catid2cattxt_map[cat_id]
         cats_val = cats_val
 
         logger.info("Creating test categories.")
@@ -236,14 +236,12 @@ class Common_Data_Handler:
         for k,v in sample2cats_test.items():
             for cat_id in v:
                 if cat_id not in cats_test:
-                    cats_test[cat_id] = cat_id2text_map[cat_id]
+                    cats_test[cat_id] = catid2cattxt_map[cat_id]
         cats_test = cats_test
-        return txts_train,sample2cats_train,cats_train,txts_val,sample2cats_val,cats_val,txts_test,sample2cats_test,cats_test,cat_id2text_map
+        return txts_train,sample2cats_train,cats_train,txts_val,sample2cats_val,cats_val,txts_test,sample2cats_test,cats_test,catid2cattxt_map
 
-    def cat2samples(self,classes_dict: dict = None):
-        """ A dictionary of categories to sample mapping.
-
-        Converts sample : categories to categories : samples
+    def gen_cat2samples_map(self,classes_dict: dict = None):
+        """ Generates a dictionary of category to samples mapping.i.e. sample : categories -> categories : samples
 
         :returns: A dictionary of categories to sample mapping.
         """
@@ -410,7 +408,7 @@ class Common_Data_Handler:
         return self.txts_test,self.sample2cats_test,self.cats_test
 
     def create_new_data(self,new_data_name: str = "_pointer",save_files: bool = True,save_dir: str = None,
-                        cat_id2text_map: OrderedDict = None):
+                        catid2cattxt_map: OrderedDict = None):
         """Creates new dataset based on new_data_name value, currently supports: "_fixed5" and "_onehot".
 
         _fixed5: Creates a dataset of samples which belongs to any of the below 5 sample2cats only.
@@ -428,21 +426,27 @@ class Common_Data_Handler:
             cats_new = File_Util.load_json(self.dataset_name + new_data_name + "_cats",filepath=save_dir)
         else:
             logger.info("No existing files found at [{}]. Generating {} files.".format(save_dir,new_data_name))
-            if cat_id2text_map is None: cat_id2text_map =\
-                File_Util.load_json(self.dataset_name + "_cat_id2text_map",filepath=self.dataset_dir)
+            if catid2cattxt_map is None: catid2cattxt_map =\
+                File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
 
             txts,classes,_ = self.load_full_json(return_values=True)
             if new_data_name is "_fixed5":
                 txts_one,classes_one,_ = self._create_oneclass_data(txts,classes,
-                                                                         cat_id2text_map=cat_id2text_map)
+                                                                    catid2cattxt_map=catid2cattxt_map)
                 txts_new,sample2cats_new,cats_new =\
-                    self._create_fixed_cat_data(txts_one,classes_one,cat_id2text_map=cat_id2text_map)
+                    self._create_fixed_cat_data(txts_one,classes_one,catid2cattxt_map=catid2cattxt_map)
             elif new_data_name is "_onehot":
                 txts_new,sample2cats_new,cats_new =\
-                    self._create_oneclass_data(txts,classes,cat_id2text_map=cat_id2text_map)
+                    self._create_oneclass_data(txts,classes,catid2cattxt_map=catid2cattxt_map)
             elif new_data_name is "_pointer":
                 txts_new,sample2cats_new,cats_new =\
-                    self._create_pointer_data(txts,classes,cat_id2text_map=cat_id2text_map)
+                    self._create_pointer_data(txts,classes,catid2cattxt_map=catid2cattxt_map)
+            elif new_data_name is "_fewshot":
+                txts_new,sample2cats_new,cats_new =\
+                    self._create_fewshot_data(txts,classes,catid2cattxt_map=catid2cattxt_map)
+            elif new_data_name is "_firstsent":
+                txts_new,sample2cats_new,cats_new =\
+                    self._create_firstsent_data(txts,classes,catid2cattxt_map=catid2cattxt_map)
             else:
                 raise Exception("Unknown 'new_data_name': [{}]. \n Available options: ['_fixed5','_onehot', '_pointer']"
                                 .format(new_data_name))
@@ -450,21 +454,23 @@ class Common_Data_Handler:
                 logger.info("New dataset will be stored inside original dataset directory at: [{}]".format(save_dir))
                 makedirs(save_dir,exist_ok=True)
                 File_Util.save_json(txts_new,self.dataset_name + new_data_name + "_txts",filepath=save_dir)
-                File_Util.save_json(sample2cats_new,self.dataset_name + new_data_name + "_sample2cats",filepath=save_dir)
+                File_Util.save_json(sample2cats_new,self.dataset_name + new_data_name + "_sample2cats",
+                                    filepath=save_dir)
                 File_Util.save_json(cats_new,self.dataset_name + new_data_name + "_cats",filepath=save_dir)
 
         return txts_new,sample2cats_new,cats_new
 
     def _create_fixed_cat_data(self,txts: OrderedDict,classes: OrderedDict,fixed5_cats: list = None,
-                               cat_id2text_map=None) -> (OrderedDict,OrderedDict,OrderedDict):
+                               catid2cattxt_map=None) -> (OrderedDict,OrderedDict,OrderedDict):
         """Creates a dataset of samples which belongs to any of the below 5 sample2cats only.
 
         Selected sample2cats: [114, 3178, 3488, 1922, 517], these sample2cats has max number of samples associated with them.
         NOTE: This method is used only for sanity testing using fixed multi-class scenario.
         """
         if fixed5_cats is None: fixed5_cats = [114,3178,3488,1922,3142]
-        if cat_id2text_map is None: cat_id2text_map = File_Util.load_json(self.dataset_name +
-                                                                          "_cat_id2text_map",filepath=self.dataset_dir)
+        if catid2cattxt_map is None: catid2cattxt_map = File_Util.load_json(self.dataset_name +
+                                                                            "_catid2cattxt_map",
+                                                                            filepath=self.dataset_dir)
         txts_one_fixed5 = OrderedDict()
         classes_one_fixed5 = OrderedDict()
         categories_one_fixed5 = OrderedDict()
@@ -474,18 +480,19 @@ class Common_Data_Handler:
                 txts_one_fixed5[doc_id] = txts[doc_id]
                 for lbl in classes_one_fixed5[doc_id]:
                     if lbl not in categories_one_fixed5:
-                        categories_one_fixed5[cat_id2text_map[str(lbl)]] = lbl
+                        categories_one_fixed5[catid2cattxt_map[str(lbl)]] = lbl
 
         return txts_one_fixed5,classes_one_fixed5,categories_one_fixed5
 
-    def _create_oneclass_data(self,txts: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (
-    OrderedDict,OrderedDict,OrderedDict):
+    def _create_oneclass_data(self,txts: OrderedDict,classes: OrderedDict,catid2cattxt_map: OrderedDict = None) -> (
+            OrderedDict,OrderedDict,OrderedDict):
         """Creates a dataset which belongs to single class only.
 
         NOTE: This method is used only for sanity testing using multi-class scenario.
         """
-        if cat_id2text_map is None: cat_id2text_map = File_Util.load_json(self.dataset_name +
-                                                                          "_cat_id2text_map",filepath=self.dataset_dir)
+        if catid2cattxt_map is None: catid2cattxt_map = File_Util.load_json(self.dataset_name +
+                                                                            "_catid2cattxt_map",
+                                                                            filepath=self.dataset_dir)
         txts_one = OrderedDict()
         classes_one = OrderedDict()
         categories_one = OrderedDict()
@@ -495,62 +502,64 @@ class Common_Data_Handler:
                 txts_one[doc_id] = txts[doc_id]
                 for lbl in classes_one[doc_id]:
                     if lbl not in categories_one:
-                        categories_one[cat_id2text_map[str(lbl)]] = lbl
+                        categories_one[catid2cattxt_map[str(lbl)]] = lbl
 
         return txts_one,classes_one,categories_one
 
     def _create_pointer_data(self,txts: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (
     OrderedDict,OrderedDict,OrderedDict):
         """ Creates pointer network type dataset, i.e. labels are marked within document text. """
-        if cat_id2text_map is None: cat_id2text_map = File_Util.load_json(self.dataset_name +
-                                                                          "_cat_id2text_map",filepath=self.dataset_dir)
+        if catid2cattxt_map is None:
+            catid2cattxt_map = File_Util.load_json(self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
         txts_ptr = OrderedDict()
         classes_ptr = OrderedDict()
         categories_ptr = OrderedDict()
         for doc_id,lbl_ids in classes.items():
             for lbl_id in lbl_ids:
-                label_ptrs = self.clean.find_label_occurrences(txts[doc_id],cat_id2text_map[str(lbl_id)])
+                label_ptrs = self.clean.find_label_occurrences(txts[doc_id],catid2cattxt_map[str(lbl_id)])
                 if label_ptrs:  ## Only if categories exists within the document.
                     classes_ptr[doc_id] = {lbl_id:label_ptrs}
                     txts_ptr[doc_id] = txts[doc_id]
 
                     if lbl_id not in categories_ptr:
-                        categories_ptr[lbl_id] = cat_id2text_map[str(lbl_id)]
+                        categories_ptr[lbl_id] = catid2cattxt_map[str(lbl_id)]
 
         return txts_ptr,classes_ptr,categories_ptr
 
 
 def main():
-    save_dir = join(config["paths"]["dataset_dir"][plat][user], config["data"]["dataset_name"],
-                    config["data"]["dataset_name"] + "_onehot")
+    # save_dir = join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"],
+    #                 config["data"]["dataset_name"] + "_pointer")
 
     common_handler = Common_Data_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
                                          dataset_name=config["data"]["dataset_name"],
                                          dataset_dir=config["paths"]["dataset_dir"][plat][user])
-    txts_new,sample2cats_new,cats_new = common_handler.create_new_data(new_data_name="_onehot",save_files=True,save_dir=save_dir,cat_id2text_map=None)
-    logger.debug(len(txts_new))
-    logger.debug(len(sample2cats_new))
-    logger.debug(len(cats_new))
+    df = common_handler.json2df()
+    logger.debug(df.head())
+    # txts_new,sample2cats_new,cats_new = common_handler.create_new_data(new_data_name="_fewshot",save_dir=save_dir)
+    # logger.debug(len(txts_new))
+    # logger.debug(len(sample2cats_new))
+    # logger.debug(len(cats_new))
 
     # txts_one, classes_one, categories_one = common_handler.create_oneclass_data(save_dir)
-    # cat_id2text_map = File_Util.load_json(config["data"]["dataset_name"] + "_cat_id2text_map",
+    # catid2cattxt_map = File_Util.load_json(config["data"]["dataset_name"] + "_catid2cattxt_map",
     #                                       filepath=join(config["paths"]["dataset_dir"][plat][user],
     #                                                      config["data"]["dataset_name"]),
     #                                       show_path=True)
     # txts_new,sample2cats_new,cats_new = common_handler.create_new_data(new_data_name="_pointer",save_files=True,
     #                                                                           save_dir=None,
-    #                                                                           cat_id2text_map=cat_id2text_map)
+    #                                                                           catid2cattxt_map=catid2cattxt_map)
     # logger.debug(len(txts_new))
     # logger.debug(len(sample2cats_new))
     # logger.debug(len(cats_new))
 
     # txts_new, sample2cats_new, cats_new = \
     #     common_handler.create_new_data(new_data_name="_onehot", save_files=True, save_dir=None,
-    #                                    cat_id2text_map=cat_id2text_map)
+    #                                    catid2cattxt_map=catid2cattxt_map)
     # logger.debug(len(txts_new))
     # logger.debug(len(sample2cats_new))
     # logger.debug(len(cats_new))
-    # txts_train, sample2cats_train, cats, _, _, _, txts_test, sample2cats_test, cats_test, cat_id2text_map = common_handler.split_data(
+    # txts_train, sample2cats_train, cats, _, _, _, txts_test, sample2cats_test, cats_test, catid2cattxt_map = common_handler.split_data(
     #     txts_one, classes_one, categories_one, val_split=0.0)
     # logger.debug(len(txts_train))
     # logger.debug(len(sample2cats_train))

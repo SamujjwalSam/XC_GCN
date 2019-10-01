@@ -625,16 +625,16 @@ class Text_Process(object):
 
     @staticmethod
     def find_label_occurrences(doc,label: str):
-        """ Finds all label indices within document.
+        """ Finds all indices within document where label text is present.
 
         :param doc:
         :param label:
         """
         label_idx = []
-        logger.debug(label)
         ## re can not work with patterns having '+' or '*' in it, ignoring str with these characters.
-        if '+' in label: return False
-        if '*' in label: return False
+        if '+' in label or '*' in label:
+            logger.warn("re can not work with patterns having '+' or '*' in it, ignoring str with these characters")
+            return False
 
         for m in re.finditer(label,doc):
             label_idx.append((m.start(),m.end()))

@@ -33,12 +33,15 @@ class Vector_Visualizations:
         self.text_process = Text_Process()
         self.text_encoder = Text_Encoder()
 
-        self.cats = cats
-        text_process = Text_Process()
-        self.cats_processed = text_process.process_categories(cats)
-        text_encoder = Text_Encoder()
-        model = text_encoder.load_word2vec()
-        self.cats_processed_vecs = text_process.gen_cat_vecs(self.cats_processed,model)
+    def create_vectors(self,cats: dict):
+        """ Creates vector from cats.
+
+        :param cats:
+        """
+        self.cats_processed = self.text_process.process_cats(cats)
+        model = self.text_encoder.load_word2vec()
+        self.cats_processed_vecs,_ = self.text_process.gen_lbl2vec(self.cats_processed,model)
+        return self.cats_processed_vecs
 
     def show_vectors(self,cats_processed_vecs=None):
         if cats_processed_vecs is None: cats_processed_vecs = self.cats_processed_vecs

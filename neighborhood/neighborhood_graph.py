@@ -58,23 +58,23 @@ class Neighborhood_Graph:
             G = self.load_doc_neighborhood_graph(get_stats=False,default_load=default_load)
         return nx.to_scipy_sparse_matrix(G,format=adj_format)
 
-    def create_neighborhood_graph(self,doc2cats_map: dict = None,min_common=config["graph"]["min_common"]):
+    def create_neighborhood_graph(self,sample2cats_map: dict = None,min_common=config["graph"]["min_common"]):
         """ Generates the neighborhood graph (of type category or document) as key
         and common items as values.
 
         Default: Generates the document graph; for label graph call 'prepare_label_graph()'.
 
         :param min_common: Minimum number of common categories between two documents.
-        :param doc2cats_map:
+        :param sample2cats_map:
         :return:
         """
-        if doc2cats_map is None: doc2cats_map = self.classes
+        if sample2cats_map is None: sample2cats_map = self.sample2cats
         G = nx.Graph()
-        nodes = list(doc2cats_map.keys())
+        nodes = list(sample2cats_map.keys())
         G.add_nodes_from(nodes)
         logger.debug(nx.info(G))
-        for doc1,cats1 in doc2cats_map.items():
-            for doc2,cats2 in doc2cats_map.items():
+        for doc1,cats1 in sample2cats_map.items():
+            for doc2,cats2 in sample2cats_map.items():
                 if doc1 != doc2:
                     cats_common = set(cats1).intersection(set(cats2))
                     if len(cats_common) >= min_common:
@@ -88,7 +88,7 @@ class Neighborhood_Graph:
         :param input_dict:
         :return:
         """
-        if input_dict is None: input_dict = self.classes
+        if input_dict is None: input_dict = self.sample2cats
         inverted_dict = OrderedDict()
         for doc,cats in input_dict.items():
             for cat in cats:
@@ -102,14 +102,14 @@ class Neighborhood_Graph:
         :param cat2docs_map:
         """
         if cat2docs_map is None:
-            cat2docs_map = self.invert_classes_dict(self.classes)
+            cat2docs_map = self.invert_classes_dict(self.sample2cats)
 
         G_cats = self.create_neighborhood_graph(cat2docs_map)
 
         nx.relabel_nodes(G_cats,self.cat_id2text_map,copy=False)
         return G_cats
 
-    def load_doc_neighborhood_graph(self,default_load='val',graph_path=None,
+    def load_doc_neighborhood_graph(self,default_load='train',graph_path=None,
                                     get_stats: bool = config["graph"]["stats"]):
         """ Loads the graph file if found else creates neighborhood graph.
 
@@ -124,8 +124,8 @@ class Neighborhood_Graph:
             logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
             Docs_G = nx.read_graphml(graph_path)
         else:
-            self.classes = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                    "_classes_" + default_load))
+            self.sample2cats = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                    "_sample2cats_" + default_load))
             # self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
             #                                            "_cats"))
             self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
@@ -184,7 +184,7 @@ class Neighborhood_Graph:
     def find_single_labels(self):
         """ Finds the number of samples with only single label. """
         single_labels = []
-        for i,t in enumerate(self.classes):
+        for i,t in enumerate(self.sample2cats):
             if len(t) == 1:
                 single_labels.append(i)
         if single_labels:

@@ -72,6 +72,7 @@ def get_batch_keys(keys: list,batch_size=64,remove_keys=True):
     :param batch_size:
     :return:
     """
+    batch_size = int(batch_size)
     if len(keys) <= batch_size:
         return keys,keys
     selected_keys = sample(keys,k=batch_size)
