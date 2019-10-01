@@ -33,6 +33,36 @@ from config import configuration as config
 from config import platform as plat
 from config import username as user
 
+class InputExample(object):
+    """A single training/test example for simple sequence classification."""
+
+    def __init__(self, guid, text_a, text_b=None, labels=None):
+        """Constructs a InputExample.
+
+        Args:
+            guid: Unique id for the example.
+            text_a: string. The untokenized text of the first sequence. For single
+            sequence tasks, only this sequence must be specified.
+            text_b: (Optional) string. The untokenized text of the second sequence.
+            Only must be specified for sequence pair tasks.
+            labels: (Optional) [string]. The label of the example. This should be
+            specified for train and dev examples, but not for test examples.
+        """
+        self.guid = guid
+        self.text_a = text_a
+        self.text_b = text_b
+        self.labels = labels
+
+
+class InputFeatures(object):
+    """A single set of features of data."""
+
+    def __init__(self, input_ids, input_mask, segment_ids, label_ids):
+        self.input_ids = input_ids
+        self.input_mask = input_mask
+        self.segment_ids = segment_ids
+        self.label_ids = label_ids
+
 
 class Text_Encoder:
     """
@@ -98,7 +128,122 @@ class Text_Encoder:
         self.pretrain_model = None
         # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
-    def load_doc2vec_model(self,documents,vector_size=config["prep_vecs"]["input_size"],window=config["prep_vecs"]["window"],
+    def load_bert_pretrained(self,txts):
+        # Load pre-trained model tokenizer (vocabulary)
+        # marked_txts = self.add_spl_tokens(txts)
+        for idx,txt in txts.items():
+            txts[idx] = "[CLS] " + txt + " [SEP]"
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        tokenized_text = tokenizer.tokenize(list(txts.values()))
+        indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+        # from keras.preprocessing.sequence import pad_sequences
+        # input_ids = pad_sequences(indexed_tokens, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+
+    @staticmethod
+    def _truncate_seq_pair(tokens_a, tokens_b, max_length):
+        """Truncates a sequence pair in place to the maximum length.
+
+        # This is a simple heuristic which will always truncate the longer sequence
+        # one token at a time. This makes more sense than truncating an equal percent
+        # of tokens from each, since if one sequence is very short then each token
+        # that's truncated likely contains more information than a longer sequence.
+        """
+        while True:
+            total_length = len(tokens_a) + len(tokens_b)
+            if total_length <= max_length:
+                break
+            if len(tokens_a) > len(tokens_b):
+                tokens_a.pop()
+            else:
+                tokens_b.pop()
+
+    def convert_examples_to_features(self,txts,label_list,max_seq_length,tokenizer):
+        """Loads a data file into a list of `InputBatch`s."""
+
+        label_map = {label : i for i, label in enumerate(label_list)}
+
+        features = []
+        for (idx, txt) in enumerate(txts):
+            tokens_a = tokenizer.tokenize(txt.text_a)
+
+            tokens_b = None
+            if txt.text_b:
+                tokens_b = tokenizer.tokenize(txt.text_b)
+                # Modifies `tokens_a` and `tokens_b` in place so that the total
+                # length is less than the specified length.
+                # Account for [CLS], [SEP], [SEP] with "- 3"
+                self._truncate_seq_pair(tokens_a, tokens_b, max_seq_length - 3)
+            else:
+                # Account for [CLS] and [SEP] with "- 2"
+                if len(tokens_a) > max_seq_length - 2:
+                    tokens_a = tokens_a[:(max_seq_length - 2)]
+
+            # The convention in BERT is:
+            # (a) For sequence pairs:
+            #  tokens:   [CLS] is this jack ##son ##ville ? [SEP] no it is not . [SEP]
+            #  type_ids: 0   0  0    0    0     0       0 0    1  1  1  1   1 1
+            # (b) For single sequences:
+            #  tokens:   [CLS] the dog is hairy . [SEP]
+            #  type_ids: 0   0   0   0  0     0 0
+            #
+            # Where "type_ids" are used to indicate whether this is the first
+            # sequence or the second sequence. The embedding vectors for `type=0` and
+            # `type=1` were learned during pre-training and are added to the wordpiece
+            # embedding vector (and position vector). This is not *strictly* necessary
+            # since the [SEP] token unambigiously separates the sequences, but it makes
+            # it easier for the model to learn the concept of sequences.
+            #
+            # For classification tasks, the first vector (corresponding to [CLS]) is
+            # used as as the "sentence vector". Note that this only makes sense because
+            # the entire model is fine-tuned.
+            tokens = ["[CLS]"] + tokens_a + ["[SEP]"]
+            segment_ids = [0] * len(tokens)
+
+            if tokens_b:
+                tokens += tokens_b + ["[SEP]"]
+                segment_ids += [1] * (len(tokens_b) + 1)
+
+            input_ids = tokenizer.convert_tokens_to_ids(tokens)
+
+            # The mask has 1 for real tokens and 0 for padding tokens. Only real
+            # tokens are attended to.
+            input_mask = [1] * len(input_ids)
+
+            # Zero-pad up to the sequence length.
+            padding = [0] * (max_seq_length - len(input_ids))
+            input_ids += padding
+            input_mask += padding
+            segment_ids += padding
+
+            assert len(input_ids) == max_seq_length
+            assert len(input_mask) == max_seq_length
+            assert len(segment_ids) == max_seq_length
+
+            labels_ids = []
+            for label in txt.labels:
+                labels_ids.append(float(label))
+
+    #         label_id = label_map[txt.label]
+            if idx < 0:
+                logger.info("*** Example ***")
+                logger.info("guid: %s" % (txt.guid))
+                logger.info("tokens: %s" % " ".join(
+                        [str(x) for x in tokens]))
+                logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
+                logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
+                logger.info(
+                        "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+                logger.info("label: %s (id = %s)" % (txt.labels, labels_ids))
+
+            features.append(
+                    InputFeatures(input_ids=input_ids,
+                                  input_mask=input_mask,
+                                  segment_ids=segment_ids,
+                                  label_ids=labels_ids))
+        return features
+
+    def load_doc2vec_model(self,documents,vector_size=config["prep_vecs"]["input_size"],
+                           window=config["prep_vecs"]["window"],
                            min_count=config["prep_vecs"]["min_count"],workers=config["text_process"]["workers"],seed=0,
                            clean_tmp=False,save_model=True,
                            doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
@@ -152,23 +297,6 @@ class Text_Encoder:
                 yield simple_preprocess(line)
             else:  ## For training data, add tags, tags are simply zero-based line number.
                 yield doc2vec.TaggedDocument(simple_preprocess(line),[i])
-
-    def get_doc2vecs(self,documents: list,doc2vec_model=None):
-        """
-        Generates vectors for documents.
-
-        :param doc2vec_model: doc2vec model object.
-        :param documents:
-        :return:
-        """
-        if doc2vec_model is None:  ## If model is not supplied, create model.
-            doc2vec_model = self.load_doc2vec(documents)
-        doc2vectors = []
-        for doc in documents:
-            doc2vectors.append(
-                doc2vec_model.infer_vector(self.clean.tokenizer_spacy(doc)))  ## Infer vector for a new document
-        doc2vectors = np.asarray(list(doc2vectors))  ## Converting Dict values to Numpy array.
-        return doc2vectors
 
     def load_word2vec(self,model_dir: str = config["paths"]["pretrain_dir"][plat][user],model_type: str = 'googlenews',
                       encoding: str = 'latin-1',model_file_name: str = "GoogleNews-vectors-negative300.bin") ->\
