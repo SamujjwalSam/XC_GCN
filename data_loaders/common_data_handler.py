@@ -322,8 +322,34 @@ class Common_Data_Handler:
             if isfile(join(self.dataset_dir,self.dataset_name + "_cats.json")):
                 self.cats = File_Util.load_json(self.dataset_name + "_cats",filepath=self.dataset_dir)
             else:
-                _,_,self.categories_all = self.load_full_json(return_values=True)
-        return self.categories_all
+                _,_,self.cats = self.load_full_json(return_values=True)
+        return self.cats
+
+    def load_all(self) -> (OrderedDict,OrderedDict,OrderedDict):
+        """Loads and returns the whole data."""
+        logger.debug(join(self.dataset_dir,self.dataset_name + "_txts.json"))
+        if self.txts_sel is None:
+            if isfile(join(self.dataset_dir,self.dataset_name + "_txts.json")):
+                self.txts_sel = File_Util.load_json(self.dataset_name + "_txts",filepath=self.dataset_dir)
+            else:
+                self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_full_json(return_values=True)
+
+        if self.sample2cats_sel is None:
+            if isfile(join(self.dataset_dir,self.dataset_name + "_sample2cats.json")):
+                self.sample2cats_sel = File_Util.load_json(self.dataset_name + "_sample2cats",filepath=self.dataset_dir)
+            else:
+                self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_full_json(return_values=True)
+
+        if self.cats_sel is None:
+            if isfile(join(self.dataset_dir,self.dataset_name + "_cats.json")):
+                self.cats_sel = File_Util.load_json(self.dataset_name + "_cats",filepath=self.dataset_dir)
+            else:
+                self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_full_json(return_values=True)
+        collect()
+
+        logger.info("Total data counts:\n\ttxts = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+                    .format(len(self.txts_sel),len(self.sample2cats_sel),len(self.cats_sel)))
+        return self.txts_sel,self.sample2cats_sel,self.cats_sel
 
     def load_train(self) -> (OrderedDict,OrderedDict,OrderedDict):
         """Loads and returns training set."""
