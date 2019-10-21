@@ -84,7 +84,7 @@ configuration = {
     },
 
     "sampling"    :{
-        "num_epochs"           :2000,
+        "num_epochs"           :500,
         "num_train_epoch"      :5,
         "batch_size"           :2,
         "categories_per_batch" :2,

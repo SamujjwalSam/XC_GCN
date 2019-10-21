@@ -38,6 +38,61 @@ from logger import logger
 python -m spacy download en
 """
 
+#
+# from torch_geometric.nn import GCNConv
+# class Net(torch.nn.Module):
+#     def __init__(self,num_classes,input_feature_dim=300):
+#         super(Net, self).__init__()
+#         self.conv1 = GCNConv(input_feature_dim, 100)
+#         self.conv2 = GCNConv(100, num_classes)
+#
+#     def forward(self, data):
+#         x, edge_index = data.x, data.edge_index
+#
+#         x = self.conv1(x, edge_index)
+#         x = F.relu(x)
+#         x = F.dropout(x, training=self.training)
+#         x = self.conv2(x, edge_index)
+#
+#         return F.log_softmax(x, dim=1)
+#
+#
+# def extract_model_weights(model, layer_no=0):
+
+
+def plot_occurance(losses: list,title="Losses",ylabel="Loss",xlabel="Epoch",clear=True,log_scale=False,plot_name=None,
+                   plot_dir="",show_plot=False):
+    """ Plots the validation loss against epochs.
+
+    :param show_plot:
+    :param plot_name:
+    :param plot_dir:
+    :param xlabel:
+    :param ylabel:
+    :param title:
+    :param losses:
+    :param clear:
+    :param log_scale:
+    """
+    ## Turn interactive plotting off
+    plt.ioff()
+
+    fig = plt.figure()
+    plt.plot(losses)
+    plt.xlabel(xlabel)
+    if log_scale:
+        plt.yscale('log')
+    plt.ylabel(ylabel)
+    plt.title(title)
+    if plot_name is None: plot_name = title + "_" + ylabel + "_" + xlabel + ".jpg"
+    plt.savefig(join(plot_dir,plot_name))
+    logger.info("Saved plot with title [{}] and ylabel [{}] and xlabel [{}] at [{}].".format(title,ylabel,xlabel,
+                                                                                             join(plot_dir,plot_name)))
+    if clear:
+        plt.cla()
+    if show_plot: plt.show()
+    plt.close(fig)  # Closing the figure so it won't get displayed in console.
+
 
 def adj_csr2t_coo(Docs_adj: sp.csr.csr_matrix) -> torch.Tensor:
     """Convert a scipy sparse "csr" matrix to a torch sparse tensor."""
@@ -127,8 +182,8 @@ def test(model,features,adj,labels,idx_test):
                  "accuracy= {:.4f}".format(acc_test.item())))
 
 
-def train(epoch: int,model: torch.nn.modules.container.Sequential,optimizer,features:
-torch.Tensor,adj: torch.Tensor,labels: torch.Tensor,idx_train: torch.Tensor,idx_val: torch.Tensor) -> list:
+def train(epoch: int,model,optimizer,features:torch.Tensor,
+          adj: torch.Tensor,labels: torch.Tensor,idx_train: torch.Tensor,idx_val: torch.Tensor) -> list:
     """
 
     :param epoch:
@@ -165,41 +220,7 @@ torch.Tensor,adj: torch.Tensor,labels: torch.Tensor,idx_train: torch.Tensor,idx_
                  'time: {:.4f}s'.format(time.time() - t)))
     losses.append(loss_train.item())
 
-    return loss_train
-
-
-def plot_occurance(losses: list,title="Losses",ylabel="Loss",xlabel="Epoch",clear=True,log_scale=False,plot_name=None,
-                   plot_dir="",show_plot=False):
-    """ Plots the validation loss against epochs.
-
-    :param show_plot:
-    :param plot_name:
-    :param plot_dir:
-    :param xlabel:
-    :param ylabel:
-    :param title:
-    :param losses:
-    :param clear:
-    :param log_scale:
-    """
-    ## Turn interactive plotting off
-    plt.ioff()
-
-    fig = plt.figure()
-    plt.plot(losses)
-    plt.xlabel(xlabel)
-    if log_scale:
-        plt.yscale('log')
-    plt.ylabel(ylabel)
-    plt.title(title)
-    if plot_name is None: plot_name = title + "_" + ylabel + "_" + xlabel + ".jpg"
-    plt.savefig(join(plot_dir,plot_name))
-    logger.info("Saved plot with title [{}] and ylabel [{}] and xlabel [{}] at [{}].".format(title,ylabel,xlabel,
-                                                                                             join(plot_dir,plot_name)))
-    if clear:
-        plt.cla()
-    if show_plot: plt.show()
-    plt.close(fig)  # Closing the figure so it won't get displayed in console.
+    return loss_train, acc_train, loss_val, acc_val, (time.time() - t)
 
 
 def main(args):
@@ -208,24 +229,20 @@ def main(args):
 
     :param args: Dict of all the arguments.
     """
-    """
-    2. Generate avg label vectors.
-    3. Write embedding loss against cats; copy code from MNXC and check Pytorch docs
-    4. Write training method and run the code and copy code from MNXC
-    """
     ## Training Phase
     data_loader = Common_Data_Handler()
     data_formatter = Prepare_Data(dataset_loader=data_loader)
     txts,sample2cats,_,cats = data_formatter.load_raw_data(load_type='all')
     txts2vec_map,cats2vec_map = data_formatter.create_vec_maps()
 
-    input_vecs,cats_hot,cats_idx = data_formatter.get_input_batch(txts2vec_map,sample2cats,return_cat_indices=True,multi_label=False)
+    input_vecs,cats_hot,keys,cats_idx = data_formatter.get_input_batch(txts2vec_map,sample2cats,return_cat_indices=True,
+                                                                       multi_label=False)
     logger.debug(input_vecs.shape)
 
-    input_adj_coo = data_formatter.load_graph_data()
+    input_adj_coo = data_formatter.load_graph_data(keys)
     logger.debug(input_adj_coo.shape)
 
-    idx_train = torch.LongTensor(range(2))
+    idx_train = torch.LongTensor(range(150))
     idx_val = torch.LongTensor(range(151,200))
     idx_test = torch.LongTensor(range(201,349))
 
@@ -240,13 +257,26 @@ def main(args):
     optimizer = optim.Adam(model.parameters(),lr=args.lr,weight_decay=args.weight_decay)
 
     # Train model
-    train_losses = []
+    train_losses,train_accs,val_losses,val_accs,train_times = [],[],[],[], []
     t_total = time.time()
     for epoch in range(args.epochs):
-        train_losses.append(train(epoch,model,optimizer,input_vecs,input_adj_coo_t.float(),cats_idx,idx_train,idx_val))
+        # train_losses.append(train(epoch,model,optimizer,input_vecs,input_adj_coo_t.float(),cats_idx,idx_train,idx_val))
+        loss_train, acc_train, loss_val, acc_val, time_taken = \
+            train(epoch=epoch,model=model,optimizer=optimizer,features=input_vecs,adj=input_adj_coo_t.float(),
+                  labels=cats_idx,idx_train=idx_train,idx_val=idx_val)
+        train_losses.append(loss_train)
+        train_accs.append(acc_train)
+        val_losses.append(loss_val)
+        val_accs.append(acc_val)
+        train_times.append(time_taken)
+        logger.info("\nLayer1 weights sum:[{}] \nLayer2 weights sum:[{}]".format(torch.sum(model.gc1.weight.data),torch.sum(model.gc2.weight.data)))
     logger.info("Optimization Finished!")
     logger.info("Total time elapsed: {:.4f}s".format(time.time() - t_total))
     plot_occurance(train_losses,plot_name="train_losses.jpg")
+    plot_occurance(train_accs,plot_name="train_accs.jpg")
+    plot_occurance(val_losses,plot_name="val_losses.jpg")
+    plot_occurance(val_accs,plot_name="val_accs.jpg")
+    plot_occurance(train_times,plot_name="time_taken.jpg")
 
     # Testing
     test(model,input_vecs,input_adj_coo_t.float(),cats_idx,idx_test)

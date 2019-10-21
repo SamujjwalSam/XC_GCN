@@ -60,9 +60,9 @@ class Prepare_Data:
         # dataset_loader.gen_data_stats()
         self.oov_words_dict = OrderedDict()
 
-    def load_graph_data(self):
+    def load_graph_data(self,nodes):
         """ Loads graph data for XC datasets. """
-        Docs_G = self.graph.load_doc_neighborhood_graph(get_stats=config["graph"]["stats"])
+        Docs_G = self.graph.load_doc_neighborhood_graph(nodes=nodes,get_stats=config["graph"]["stats"])
         Docs_adj_coo = self.graph.get_adj_matrix(Docs_G,adj_format='coo')
         # Docs_adj_coo_t = adj_csr2t_coo(Docs_adj_coo)
         return Docs_adj_coo
@@ -110,9 +110,9 @@ class Prepare_Data:
             else:
                 ## For Multi-Class, cross-entropy loss
                 cats_idx = sample2cats_keys_hot.argmax(1)
-            return txt_vecs_keys,sample2cats_keys_hot,cats_idx
+            return txt_vecs_keys,sample2cats_keys_hot,keys,cats_idx
 
-        return txt_vecs_keys,sample2cats_keys_hot
+        return txt_vecs_keys,sample2cats_keys_hot,keys
 
     def invert_cat2samples(self,classes_dict: dict = None):
         """Converts sample : cats to cats : samples

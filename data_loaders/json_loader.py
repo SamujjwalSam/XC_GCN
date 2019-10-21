@@ -18,7 +18,7 @@ __classes__     : JSONLoader
 from os.path import join
 import torch.utils.data
 from collections import OrderedDict
-from smart_open import smart_open as sopen  # Better alternative to Python open().
+from smart_open import open as sopen  # Better alternative to Python open().
 
 from file_utils import File_Util
 from logger import logger

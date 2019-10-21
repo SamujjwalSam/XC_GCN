@@ -58,30 +58,6 @@ class Neighborhood_Graph:
             G = self.load_doc_neighborhood_graph(get_stats=False,default_load=default_load)
         return nx.to_scipy_sparse_matrix(G,format=adj_format)
 
-    def create_neighborhood_graph(self,sample2cats_map: dict = None,min_common=config["graph"]["min_common"]):
-        """ Generates the neighborhood graph (of type category or document) as key
-        and common items as values.
-
-        Default: Generates the document graph; for label graph call 'prepare_label_graph()'.
-
-        :param min_common: Minimum number of common categories between two documents.
-        :param sample2cats_map:
-        :return:
-        """
-        if sample2cats_map is None: sample2cats_map = self.sample2cats
-        G = nx.Graph()
-        nodes = list(sample2cats_map.keys())
-        G.add_nodes_from(nodes)
-        logger.debug(nx.info(G))
-        for doc1,cats1 in sample2cats_map.items():
-            for doc2,cats2 in sample2cats_map.items():
-                if doc1 != doc2:
-                    cats_common = set(cats1).intersection(set(cats2))
-                    if len(cats_common) >= min_common:
-                        G.add_edge(doc1,doc2,edge_id=str(doc1) + '-' + str(doc2),common=repr(cats_common))
-
-        return G
-
     def invert_classes_dict(self,input_dict=None):
         """ Generates a new dict with categories to document ids map.
 
@@ -109,34 +85,61 @@ class Neighborhood_Graph:
         nx.relabel_nodes(G_cats,self.cat_id2text_map,copy=False)
         return G_cats
 
-    def load_doc_neighborhood_graph(self,default_load='train',graph_path=None,
-                                    get_stats: bool = config["graph"]["stats"]):
+    def create_neighborhood_graph(self,nodes: list = None,sample2cats_map: dict = None,
+                                  min_common=config["graph"]["min_common"]):
+        """ Generates the neighborhood graph (of type category or document) as key
+        and common items as values.
+
+        Default: Generates the document graph; for label graph call 'prepare_label_graph()'.
+
+        :param nodes: List of node ids to consider, others are ignored.
+        :param min_common: Minimum number of common categories between two documents.
+        :param sample2cats_map:
+        :return:
+        """
+        if sample2cats_map is None: sample2cats_map = self.sample2cats
+        if nodes is None: nodes = list(sample2cats_map.keys())
+        G = nx.Graph()
+        G.add_nodes_from(nodes)
+        logger.debug(nx.info(G))
+        for doc1,cats1 in sample2cats_map.items():
+            for doc2,cats2 in sample2cats_map.items():
+                if doc1 in nodes and doc2 in nodes:  ## Consider samples only within [nodes] list.
+                    if doc1 != doc2:
+                        cats_common = set(cats1).intersection(set(cats2))
+                        if len(cats_common) >= min_common:
+                            G.add_edge(doc1,doc2,edge_id=str(doc1) + '-' + str(doc2),common=repr(cats_common))
+
+        return G
+
+    def load_doc_neighborhood_graph(self,nodes,graph_path=None,get_stats: bool = config["graph"]["stats"]):
         """ Loads the graph file if found else creates neighborhood graph.
 
-        :param default_load:
+        :param nodes: List of node ids to consider.
         :param get_stats:
         :param graph_path: Full path to the graphml file.
         :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
-        if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
-                                                 self.dataset_name + "_G_" + default_load + ".graphml")
-        if exists(graph_path):
-            logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
-            Docs_G = nx.read_graphml(graph_path)
-        else:
-            self.sample2cats = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                    "_sample2cats_" + default_load))
-            # self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-            #                                            "_cats"))
-            self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                            "_cat_id2text_map"))
-            Docs_G = self.create_neighborhood_graph()
-            logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
-            nx.write_graphml(Docs_G,graph_path)
+        # if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
+        #                                          self.dataset_name + "_G_" + str(len(nodes)) + ".graphml")
+        # if exists(graph_path):
+        #     logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
+        #     Docs_G = nx.read_graphml(graph_path)
+        # else:
+        self.sample2cats = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                    "_sample2cats"))
+        # self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+        #                                            "_cats"))
+        # self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+        #                                                 "_cat_id2text_map"))
+        Docs_G = self.create_neighborhood_graph(nodes=nodes)
+        logger.debug(nx.info(Docs_G))
+            # logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
+            # nx.write_graphml(Docs_G,graph_path)
         # Docs_adj = nx.adjacency_matrix(Docs_G)
         if get_stats:
             Docs_G_stats = self.graph_stats(Docs_G)
-            File_Util.save_json(Docs_G_stats,filename=self.dataset_name + "_G_stats_" + default_load,overwrite=True,
+            File_Util.save_json(Docs_G_stats,filename=self.dataset_name + "_G_stats",overwrite=True,
                                 filepath=join(self.graph_dir,self.dataset_name))
             return Docs_G,Docs_G_stats
         return Docs_G

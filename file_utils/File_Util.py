@@ -23,7 +23,7 @@ from collections import OrderedDict
 from os.path import join, exists, isfile
 
 from scipy import sparse
-from smart_open import smart_open as sopen  # Better alternative to Python open().
+from smart_open import open as sopen  # Better alternative to Python open().
 
 from logger import logger
 
