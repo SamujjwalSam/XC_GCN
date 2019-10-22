@@ -242,9 +242,9 @@ def main(args):
     input_adj_coo = data_formatter.load_graph_data(keys)
     logger.debug(input_adj_coo.shape)
 
-    idx_train = torch.LongTensor(range(150))
-    idx_val = torch.LongTensor(range(151,200))
-    idx_test = torch.LongTensor(range(201,349))
+    idx_train = torch.LongTensor(range(1300))
+    idx_val = torch.LongTensor(range(1301,1500))
+    idx_test = torch.LongTensor(range(1500,1744))
 
     input_vecs = torch.FloatTensor(input_vecs)
     cats_idx = torch.LongTensor(cats_idx)
@@ -272,11 +272,11 @@ def main(args):
         logger.info("\nLayer1 weights sum:[{}] \nLayer2 weights sum:[{}]".format(torch.sum(model.gc1.weight.data),torch.sum(model.gc2.weight.data)))
     logger.info("Optimization Finished!")
     logger.info("Total time elapsed: {:.4f}s".format(time.time() - t_total))
-    plot_occurance(train_losses,plot_name="train_losses.jpg")
-    plot_occurance(train_accs,plot_name="train_accs.jpg")
-    plot_occurance(val_losses,plot_name="val_losses.jpg")
-    plot_occurance(val_accs,plot_name="val_accs.jpg")
-    plot_occurance(train_times,plot_name="time_taken.jpg")
+    plot_occurance(train_losses,plot_name="train_losses_"+str(args.epochs)+".jpg",title="Train Losses")
+    plot_occurance(train_accs,plot_name="train_accs_"+str(args.epochs)+".jpg",ylabel="Accuracy",title="Train Accuracy")
+    plot_occurance(val_losses,plot_name="val_losses_"+str(args.epochs)+".jpg",title="Validation Losses")
+    plot_occurance(val_accs,plot_name="val_accs_"+str(args.epochs)+".jpg",ylabel="Accuracy",title="Validation Accuracy")
+    plot_occurance(train_times,plot_name="time_taken_"+str(args.epochs)+".jpg",ylabel="Time",title="Train Time")
 
     # Testing
     test(model,input_vecs,input_adj_coo_t.float(),cats_idx,idx_test)

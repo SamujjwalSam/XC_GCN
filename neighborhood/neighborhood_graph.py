@@ -120,6 +120,7 @@ class Neighborhood_Graph:
         :param graph_path: Full path to the graphml file.
         :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
+
         # if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
         #                                          self.dataset_name + "_G_" + str(len(nodes)) + ".graphml")
         # if exists(graph_path):
