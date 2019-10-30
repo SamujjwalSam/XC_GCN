@@ -180,7 +180,7 @@ class Prepare_Data:
             cat_ids.append([cat_id])
         self.mlb.fit(cat_ids)
 
-        self.idf_dict = self.txt_process.calculate_idf_per_token(docs=self.txts_sel.values())
+        # self.idf_dict = self.txt_process.calculate_idf_per_token(txts=self.txts_sel.values())
 
         if return_values:
             return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats_all

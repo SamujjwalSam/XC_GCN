@@ -161,7 +161,7 @@ class GCN(nn.Module):
         x = F.relu(self.gc1(x,adj))
         x = F.dropout(x,self.dropout,training=self.training)
         x = self.gc2(x,adj)
-        return F.log_softmax(x,dim=1)
+        return F.log_softmax(x,dim=1),x
 
 
 def accuracy(output: torch.Tensor,labels: torch.Tensor) -> torch.Tensor:
@@ -189,8 +189,75 @@ def test(model,features,adj,labels,idx_test):
                  "accuracy= {:.4f}".format(acc_test.item())))
 
 
-def train(epoch: int,model,optimizer,features:torch.Tensor,
-          adj: torch.Tensor,labels: torch.Tensor,idx_train: torch.Tensor,idx_val: torch.Tensor) -> list:
+def neighrest_neighbors(test_features,train_features,k=5):
+    from sklearn.neighbors import NearestNeighbors
+
+    NN = NearestNeighbors(n_neighbors=k)
+    NN.fit(train_features)
+    closest_neighbors_from_train = NN.kneighbors(test_features,
+                                                 return_distance=False)
+    return closest_neighbors_from_train
+
+
+def knn_lbl_majority(test_features,train_features,train_labels,k=5):
+    """
+
+    :param test_features:
+    :param train_features:
+    :param train_labels:
+    :param k:
+    :return:
+    """
+    from sklearn.neighbors import KNeighborsClassifier
+
+    NN = KNeighborsClassifier(n_neighbors=k)
+    NN.fit(train_features,train_labels)
+    test_labels = NN.predict(test_features)
+    ## To get probabilities: test_labels_probas = NN.predict_proba(test_features)
+    return test_labels
+
+
+def test_weights(model,train_features,test_features,train_labels,test_labels,
+                 idx_test):
+    """
+
+    :param model:
+    :param train_features:
+    :param test_features:
+    :param train_labels:
+    :param test_labels:
+    :param idx_test:
+    """
+    t = time.time()
+    model.eval()
+    features_wl2 = []
+    features_wl12 = []
+    for idx in idx_test:
+        features_wl12.append(torch.mm(model.gc2.weight.data,
+                                      torch.mm(model.gc1.weight.data,
+                                               test_features[idx])))
+
+        features_wl2.append(torch.mm(model.gc2.weight.data,test_features[idx]))
+
+    features_wl2 = torch.stack(features_wl2)
+    test_outputs_wl2 = knn_lbl_majority(features_wl2,train_features,
+                                        train_labels,k=5)
+    acc_test_wl2 = accuracy(test_outputs_wl2[idx_test],test_labels[idx_test])
+
+    features_wl12 = torch.stack(features_wl12)
+    test_outputs_wl12 = knn_lbl_majority(features_wl12,train_features,
+                                         train_labels,k=5)
+    acc_test_wl12 = accuracy(test_outputs_wl12[idx_test],test_labels[idx_test])
+
+    logger.info("Test set results:",
+                "acc_test_wl2= {:.4f}".format(acc_test_wl2.item()),
+                "acc_test_wl12= {:.4f}".format(acc_test_wl12.item()),
+                'test_time: {:.4f}s'.format(time.time() - t))
+
+
+def train(epoch: int,model,optimizer,features: torch.Tensor,
+          adj: torch.Tensor,labels: torch.Tensor,idx_train: torch.Tensor,
+          idx_val: torch.Tensor) -> tuple:
     """
 
     :param epoch:
@@ -202,11 +269,10 @@ def train(epoch: int,model,optimizer,features:torch.Tensor,
     :param idx_train:
     :param idx_val:
     """
-    # losses = []
     t = time.time()
     model.train()
     optimizer.zero_grad()
-    output = model(features,adj)
+    output,_ = model(features,adj)
     loss_train = F.nll_loss(output[idx_train],labels[idx_train])
     acc_train = accuracy(output[idx_train],labels[idx_train])
     loss_train.backward()
@@ -216,7 +282,7 @@ def train(epoch: int,model,optimizer,features:torch.Tensor,
         ## Evaluate validation set performance separately, deactivates dropout
         ## during validation run.
         model.eval()
-        output = model(features,adj)
+        output,_ = model(features,adj)
 
     loss_val = F.nll_loss(output[idx_val],labels[idx_val])
     acc_val = accuracy(output[idx_val],labels[idx_val])
@@ -226,7 +292,6 @@ def train(epoch: int,model,optimizer,features:torch.Tensor,
                  'loss_val: {:.4f}'.format(loss_val.item()),
                  'acc_val: {:.4f}'.format(acc_val.item()),
                  'time: {:.4f}s'.format(time.time() - t)))
-    # losses.append(loss_train.item())
 
     return loss_train.item(),acc_train.item(),loss_val.item(),acc_val.item(),\
            (time.time() - t)
@@ -289,6 +354,12 @@ def main(args):
                 torch.sum(model.gc1.weight.data),
                 torch.sum(model.gc2.weight.data)))
     logger.info("Optimization Finished!")
+    _,train_features = model(input_vecs,input_adj_coo_t.float())
+    # W1 = model.gc1.weight.data
+    logger.info(
+        "Layer 1 weight matrix shape: [{}]".format(model.gc1.weight.data.shape))
+    logger.info(
+        "Layer 2 weight matrix shape: [{}]".format(model.gc2.weight.data.shape))
     logger.info("Total time elapsed: {:.4f}s".format(time.time() - t_total))
     plot_occurance(train_losses,
                    plot_name="train_losses_" + str(args.epochs) + ".jpg",
@@ -309,6 +380,7 @@ def main(args):
 
     # Testing
     test(model,input_vecs,input_adj_coo_t.float(),cats_idx,idx_test)
+    test_weights(model,train_features,input_vecs,cats_idx,idx_test)
 
 
 if __name__ == '__main__':

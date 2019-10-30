@@ -70,7 +70,7 @@ configuration = {
         "fce"                 :True,
         "optimizer"           :{
             "optimizer_type":"adam",
-            "learning_rate" :0.0001,
+            "learning_rate" :4e-5,
             "lr_decay"      :0,
             "weight_decay"  :5e-4,
             "momentum"      :0.9,
@@ -84,7 +84,7 @@ configuration = {
     },
 
     "sampling"    :{
-        "num_epochs"           :15000,
+        "num_epochs"           :5,
         "num_train_epoch"      :5,
         "batch_size"           :2,
         "categories_per_batch" :2,

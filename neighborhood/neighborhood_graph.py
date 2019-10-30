@@ -55,7 +55,7 @@ class Neighborhood_Graph:
         :param adj_format: scipy sparse format name, e.g. {‘bsr’, ‘csr’, ‘csc’, ‘coo’, ‘lil’, ‘dia’, ‘dok’}.
         """
         if G is None:
-            G = self.load_doc_neighborhood_graph(get_stats=False,default_load=default_load)
+            G = self.load_doc_neighborhood_graph(get_stats=False)
         return nx.to_scipy_sparse_matrix(G,format=adj_format)
 
     def invert_classes_dict(self,input_dict=None):

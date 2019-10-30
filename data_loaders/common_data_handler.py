@@ -288,7 +288,7 @@ class Common_Data_Handler:
             self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_all()
         # self.gen_data_stats(self.txts_sel, self.sample2cats_sel, self.cats_sel)
         if calculate_idf:
-            idf_dict = self.clean.calculate_idf_per_token(docs=list(self.txts_sel.values()))
+            idf_dict = self.clean.calculate_idf_per_token(txts=list(self.txts_sel.values()))
             return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats,idf_dict
         return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats
 

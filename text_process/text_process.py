@@ -392,6 +392,7 @@ class Text_Process(object):
         :param subtract: Removes this value from idf scores. Sometimes needed to get better scores.
         :return: Dict of token to idf score.
         """
+        logger.info("Calculating IDF for each token.")
         if isfile(join(self.dataset_dir,self.dataset_name + "_tfidf_dict.json")):
             idf_dict = File_Util.load_json(filename=self.dataset_name + "_idf_dict",filepath=self.dataset_dir)
         else:
