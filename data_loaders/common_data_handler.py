@@ -288,7 +288,7 @@ class Common_Data_Handler:
             self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_all()
         # self.gen_data_stats(self.txts_sel, self.sample2cats_sel, self.cats_sel)
         if calculate_idf:
-            idf_dict = self.clean.calculate_idf(docs=list(self.txts_sel.values()))
+            idf_dict = self.clean.calculate_idf_per_token(docs=list(self.txts_sel.values()))
             return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats,idf_dict
         return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats
 
@@ -523,7 +523,7 @@ class Common_Data_Handler:
 
         return cat_word_counts
 
-    def json2df(self,txts_all: dict = None,sample2cats_all: dict = None):
+    def json2csv(self,txts_all: dict = None,sample2cats_all: dict = None):
         """ Converts existing multiple json files and returns a single pandas dataframe.
 
         :param txts_all:
@@ -655,7 +655,7 @@ def main():
     common_handler = Common_Data_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
                                          dataset_name=config["data"]["dataset_name"],
                                          dataset_dir=config["paths"]["dataset_dir"][plat][user])
-    df = common_handler.json2df()
+    df = common_handler.json2csv()
     logger.debug(df.head())
     # txts_new,sample2cats_new,cats_new = common_handler.create_new_data(new_data_name="_fewshot",save_dir=save_dir)
     # logger.debug(len(txts_new))

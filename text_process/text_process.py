@@ -385,23 +385,24 @@ class Text_Process(object):
             tokens.append(token.text)
         return tokens
 
-    def calculate_idf(self,docs: list,subtract: int = 1) -> dict:
-        """ Calculates idf scores for each token in the corpus.
+    def calculate_idf_per_token(self,txts: list,subtract: int = 1) -> dict:
+        """ Calculates tfidf scores for each token in the corpus.
 
-        :param docs:
+        :param txts:
         :param subtract: Removes this value from idf scores. Sometimes needed to get better scores.
         :return: Dict of token to idf score.
         """
-        if isfile(join(self.dataset_dir,self.dataset_name + "_idf_dict.json")):
+        if isfile(join(self.dataset_dir,self.dataset_name + "_tfidf_dict.json")):
             idf_dict = File_Util.load_json(filename=self.dataset_name + "_idf_dict",filepath=self.dataset_dir)
         else:
             from sklearn.feature_extraction.text import TfidfVectorizer
             ## Using TfidfVectorizer with spacy tokenizer; same tokenizer should be used everywhere.
-            vectorizer = TfidfVectorizer(decode_error='ignore',lowercase=False,smooth_idf=False,
+            vectorizer = TfidfVectorizer(decode_error='ignore',lowercase=False,smooth_idf=False, sublinear_tf=True, stop_words='english', ngram_range=(1,1), max_df=0.7, vocabulary=None,
                                          tokenizer=self.tokenizer_spacy)
-            tfidf_matrix = vectorizer.fit_transform(docs)
+            tfidf_matrix = vectorizer.fit_transform(txts)
             idf = vectorizer.idf_
             idf_dict = dict(zip(vectorizer.get_feature_names(),idf - subtract))  ## Subtract 1 from idf to get better scores
+            ignored_tokens = vectorizer.stop_words_
 
             File_Util.save_json(idf_dict,filename=self.dataset_name + "_idf_dict",filepath=self.dataset_dir)
 
