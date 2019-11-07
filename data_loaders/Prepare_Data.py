@@ -83,7 +83,7 @@ class Prepare_Data:
         for k in keys:
             batch_x.append(X[k])
             batch_y.append(Y[k])
-        return np.stack(batch_x),np.stack(batch_y)
+        return np.stack(batch_x),batch_y
 
     def get_input_batch(self,txts:dict,sample2cats:dict,keys:list=None,return_cat_indices: bool = False,multi_label: bool = True) ->\
             [np.ndarray,np.ndarray,np.ndarray]:
@@ -98,7 +98,8 @@ class Prepare_Data:
         """
         if keys is None:
             sample_ids = list(txts.keys())
-            batch_size = int(0.7 * len(sample_ids))
+            # batch_size = int(0.7 * len(sample_ids))
+            batch_size = int(len(sample_ids))
             _,keys = File_Util.get_batch_keys(sample_ids,batch_size=batch_size, remove_keys=False)
         txt_vecs_keys,sample2cats_keys = self.create_batch_repeat(txts,sample2cats,keys)
         sample2cats_keys_hot = self.mlb.transform(sample2cats_keys)

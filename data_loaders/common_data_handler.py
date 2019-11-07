@@ -324,7 +324,7 @@ class Common_Data_Handler:
                 self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_full_json(return_values=True)
         collect()
 
-        logger.info("Total data counts:\n\ttxts = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+        logger.info("Total data counts:\n\ttxts = [{}],\n\tsample2cats = [{}],\n\tcats = [{}]"
                     .format(len(self.txts_sel),len(self.sample2cats_sel),len(self.cats_sel)))
         return self.txts_sel,self.sample2cats_sel,self.cats_sel
 
@@ -543,8 +543,10 @@ class Common_Data_Handler:
                 idxs.append(idx)
                 txts_all_list.append(txts_all[idx])
                 sample2cats_all_list.append(sample2cats_all[idx])
+                sample2catstext = []
                 for lbl in sample2cats_all[idx]:
-                    sample2catstext_all_list.append([catid2cattxt_map[str(lbl)]])
+                    sample2catstext.append(catid2cattxt_map[str(lbl)])
+                sample2catstext_all_list.append(sample2catstext)
 
             df = pd.DataFrame.from_dict({"idx"    :idxs,
                                          "txts"   :txts_all_list,

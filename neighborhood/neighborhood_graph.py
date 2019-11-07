@@ -121,22 +121,22 @@ class Neighborhood_Graph:
         :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
 
-        # if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
-        #                                          self.dataset_name + "_G_" + str(len(nodes)) + ".graphml")
-        # if exists(graph_path):
-        #     logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
-        #     Docs_G = nx.read_graphml(graph_path)
-        # else:
-        self.sample2cats = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+        if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
+                                                 self.dataset_name + "_G_" + str(len(nodes)) + ".graphml")
+        if exists(graph_path):
+            logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
+            Docs_G = nx.read_graphml(graph_path)
+        else:
+            self.sample2cats = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
                                                     "_sample2cats"))
-        # self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-        #                                            "_cats"))
-        # self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-        #                                                 "_cat_id2text_map"))
-        Docs_G = self.create_neighborhood_graph(nodes=nodes)
-        logger.debug(nx.info(Docs_G))
-            # logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
-            # nx.write_graphml(Docs_G,graph_path)
+            self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                       "_cats"))
+            self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
+                                                            "_catid2cattxt_map"))
+            Docs_G = self.create_neighborhood_graph(nodes=nodes)
+            logger.debug(nx.info(Docs_G))
+            logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
+            nx.write_graphml(Docs_G,graph_path)
         # Docs_adj = nx.adjacency_matrix(Docs_G)
         if get_stats:
             Docs_G_stats = self.graph_stats(Docs_G)
