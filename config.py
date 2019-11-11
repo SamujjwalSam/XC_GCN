@@ -30,7 +30,8 @@ seed = 0
 global configuration
 configuration = {
     "data"        :{
-        "dataset_name":"Wiki10-31K_onehot",
+        "project_name":"XCGCN",
+        "dataset_name":"Wiki10-31K",
         "val_split"   :0.1,
         "test_split"  :0.3,
         "show_stat"   :False
@@ -84,7 +85,7 @@ configuration = {
     },
 
     "sampling"    :{
-        "num_epochs"           :5,
+        "num_epochs"           :100,
         "num_train_epoch"      :5,
         "batch_size"           :2,
         "categories_per_batch" :2,
@@ -96,6 +97,7 @@ configuration = {
     "graph"       :{
         "stats"         :False,
         "min_common"    :1,
+        "min_common_ratio"    :0.05,
         "plot_name"     :"label_vecs.jpg",
         "level"         :1,
         "subgraph_count":5,

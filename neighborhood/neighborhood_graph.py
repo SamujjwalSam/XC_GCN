@@ -22,6 +22,7 @@ from queue import Queue  # Python 2.7 does not have this library
 from collections import OrderedDict
 
 from file_utils import File_Util
+from text_process import Text_Process
 from logger import logger
 from config import configuration as config
 from config import platform as plat
@@ -31,7 +32,8 @@ from config import username as user
 class Neighborhood_Graph:
     """ Class to generate neighborhood graph of categories. """
 
-    def __init__(self,dataset_name: str = config["data"]["dataset_name"],graph_format: str = "graphml",top_k: int = 10,
+    def __init__(self,dataset_name: str = config["data"]["dataset_name"],
+                 graph_format: str = "graphml",top_k: int = 10,
                  graph_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """
 
@@ -45,9 +47,11 @@ class Neighborhood_Graph:
         self.dataset_name = dataset_name
         self.graph_format = graph_format
         self.top_k = top_k
+        self.txt_process = Text_Process()
         # self.load_doc_neighborhood_graph()
 
-    def get_adj_matrix(self,G: nx.classes.graph.Graph = None,default_load: str = 'val',adj_format: str = "coo"):
+    def get_adj_matrix(self,G: nx.classes.graph.Graph = None,
+                       default_load: str = 'val',adj_format: str = "coo"):
         """ Returns the adjacency matrix in [adj_format].
 
         :param default_load:
@@ -85,7 +89,8 @@ class Neighborhood_Graph:
         nx.relabel_nodes(G_cats,self.cat_id2text_map,copy=False)
         return G_cats
 
-    def create_neighborhood_graph(self,nodes: list = None,sample2cats_map: dict = None,
+    def create_neighborhood_graph(self,nodes: list = None,
+                                  sample2cats_map: dict = None,
                                   min_common=config["graph"]["min_common"]):
         """ Generates the neighborhood graph (of type category or document) as key
         and common items as values.
@@ -108,11 +113,45 @@ class Neighborhood_Graph:
                     if doc1 != doc2:
                         cats_common = set(cats1).intersection(set(cats2))
                         if len(cats_common) >= min_common:
-                            G.add_edge(doc1,doc2,edge_id=str(doc1) + '-' + str(doc2),common=repr(cats_common))
+                            G.add_edge(doc1,doc2,
+                                       edge_id=str(doc1) + '-' + str(doc2),
+                                       common=repr(cats_common))
 
         return G
 
-    def load_doc_neighborhood_graph(self,nodes,graph_path=None,get_stats: bool = config["graph"]["stats"]):
+    def create_word_cooccurance_graph_txts(self,nodes: list = None,
+                                           txts: dict = None,
+                                           min_common_ratio=config["graph"][
+                                               "min_common_ratio"]):
+        """ Generate the graph among documents using common words as edge.
+
+        Default: Generates the document graph; for label graph call 'prepare_label_graph()'.
+
+        :param nodes: List of node ids to consider, others are ignored.
+        :param min_common_ratio: Minimum number of common categories between two documents.
+        :param txts:
+        :return:
+        """
+        if nodes is None: nodes = list(txts.keys())
+        G = nx.Graph()
+        G.add_nodes_from(nodes)
+        for txt_id1,txt1 in txts.items():
+            for txt_id2,txt2 in txts.items():
+                txt1_tokens = self.txt_process.tokenizer_spacy(txt1)
+                txt2_tokens = self.txt_process.tokenizer_spacy(txt2)
+                cats_common = set(txt1_tokens).intersection(set(txt2_tokens))
+                cats_common_ratio = len(cats_common) / (
+                            len(txt1_tokens) + len(txt2_tokens))
+                if cats_common_ratio >= min_common_ratio:  ## Normalize min_common_ratio by txt1 and txt2's token count.
+                    G.add_edge(txt_id1,txt_id2,
+                               edge_id=str(txt_id1) + '-' + str(txt_id2),
+                               min_common_tokens=repr(min_common_ratio))
+
+        logger.debug(nx.info(G))
+        return G
+
+    def load_doc_neighborhood_graph(self,nodes,graph_path=None,
+                                    get_stats: bool = config["graph"]["stats"]):
         """ Loads the graph file if found else creates neighborhood graph.
 
         :param nodes: List of node ids to consider.
@@ -121,18 +160,24 @@ class Neighborhood_Graph:
         :return: Networkx graph, Adjecency matrix, stats related to the graph.
         """
 
-        if graph_path is None: graph_path = join(self.graph_dir,self.dataset_name,
-                                                 self.dataset_name + "_G_" + str(len(nodes)) + ".graphml")
+        if graph_path is None: graph_path = join(self.graph_dir,
+                                                 self.dataset_name,
+                                                 self.dataset_name + "_G_" + str(
+                                                     len(nodes)) + ".graphml")
         if exists(graph_path):
-            logger.info("Loading neighborhood graph from [{0}]".format(graph_path))
+            logger.info(
+                "Loading neighborhood graph from [{0}]".format(graph_path))
             Docs_G = nx.read_graphml(graph_path)
         else:
-            self.sample2cats = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                    "_sample2cats"))
-            self.categories = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                       "_cats"))
-            self.cat_id2text_map = File_Util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name +
-                                                            "_catid2cattxt_map"))
+            self.sample2cats = File_Util.load_json(
+                join(self.graph_dir,self.dataset_name,self.dataset_name +
+                     "_sample2cats"))
+            self.categories = File_Util.load_json(
+                join(self.graph_dir,self.dataset_name,self.dataset_name +
+                     "_cats"))
+            self.cat_id2text_map = File_Util.load_json(
+                join(self.graph_dir,self.dataset_name,self.dataset_name +
+                     "_catid2cattxt_map"))
             Docs_G = self.create_neighborhood_graph(nodes=nodes)
             logger.debug(nx.info(Docs_G))
             logger.info("Saving neighborhood graph at [{0}]".format(graph_path))
@@ -140,7 +185,9 @@ class Neighborhood_Graph:
         # Docs_adj = nx.adjacency_matrix(Docs_G)
         if get_stats:
             Docs_G_stats = self.graph_stats(Docs_G)
-            File_Util.save_json(Docs_G_stats,filename=self.dataset_name + "_G_stats",overwrite=True,
+            File_Util.save_json(Docs_G_stats,
+                                filename=self.dataset_name + "_G_stats",
+                                overwrite=True,
                                 filepath=join(self.graph_dir,self.dataset_name))
             return Docs_G,Docs_G_stats
         return Docs_G
@@ -155,7 +202,8 @@ class Neighborhood_Graph:
         G_stats = OrderedDict()
         G_stats["info"] = nx.info(G)
         logger.debug("info: [{0}]".format(G_stats["info"]))
-        G_stats["degree_sequence"] = sorted([d for n,d in G.degree()],reverse=True)
+        G_stats["degree_sequence"] = sorted([d for n,d in G.degree()],
+                                            reverse=True)
         # logger.debug("degree_sequence: {0}".format(G_stats["degree_sequence"]))
         G_stats["dmax"] = max(G_stats["degree_sequence"])
         logger.debug("dmax: [{0}]".format(G_stats["dmax"]))
@@ -192,12 +240,14 @@ class Neighborhood_Graph:
             if len(t) == 1:
                 single_labels.append(i)
         if single_labels:
-            logger.debug(len(single_labels),'samples has only single category. These categories will not occur in the'
-                                            'co-occurrence graph.')
+            logger.debug(len(single_labels),
+                         'samples has only single category. These categories will not occur in the'
+                         'co-occurrence graph.')
         return len(single_labels)
 
     @staticmethod
-    def plot_occurance(E,plot_name=config["graph"]["plot_name"],clear=True,log=False):
+    def plot_occurance(E,plot_name=config["graph"]["plot_name"],clear=True,
+                       log=False):
         """
 
         :param E:
@@ -218,8 +268,10 @@ class Neighborhood_Graph:
         if clear:
             plt.cla()
 
-    def get_subgraph(self,V,E,dataset_name,level=config["graph"]["level"],root_node=config["graph"]["root_node"],
-                     subgraph_count=config["graph"]["subgraph_count"],ignore_deg=config["graph"]["ignore_deg"]):
+    def get_subgraph(self,V,E,dataset_name,level=config["graph"]["level"],
+                     root_node=config["graph"]["root_node"],
+                     subgraph_count=config["graph"]["subgraph_count"],
+                     ignore_deg=config["graph"]["ignore_deg"]):
         """ Generates a subgraph of [level] hops starting from [root_node] node.
 
         # total_points: total number of samples.
@@ -247,16 +299,21 @@ class Neighborhood_Graph:
             # two files to write the graph and label information
             # Remove characters like \, /, <, >, :, *, |, ", ? from file names,
             # windows can not have file name with these characters
-            label_info_filepath = 'samples/' + str(dataset_name) + '_Info[{}].txt'.format(
-                str(int(v)) + '-' + File_Util.remove_special_chars(self.cat_id2text_map[v]))
-            label_graph_filepath = 'samples/' + str(dataset_name) + '_G[{}].graphml'.format(
-                str(int(v)) + '-' + File_Util.remove_special_chars(self.cat_id2text_map[v]))
+            label_info_filepath = 'samples/' + str(
+                dataset_name) + '_Info[{}].txt'.format(
+                str(int(v)) + '-' + File_Util.remove_special_chars(
+                    self.cat_id2text_map[v]))
+            label_graph_filepath = 'samples/' + str(
+                dataset_name) + '_G[{}].graphml'.format(
+                str(int(v)) + '-' + File_Util.remove_special_chars(
+                    self.cat_id2text_map[v]))
             # label_graph_el = 'samples/'+str(dataset_name)+'_E[{}].el'.format(str(int(v)) + '-'
             # + self.cat_id2text_map[v]).replace(' ','_')
 
             logger.debug('Label:[' + self.cat_id2text_map[v] + ']')
             label_info_file = open(label_info_filepath,'w')
-            label_info_file.write('Label:[' + self.cat_id2text_map[v] + ']' + "\n")
+            label_info_file.write(
+                'Label:[' + self.cat_id2text_map[v] + ']' + "\n")
 
             # build the subgraph using bfs
             bfs_q = Queue()
@@ -281,7 +338,8 @@ class Neighborhood_Graph:
                     if ignore_deg is not None and len(edges) > ignore_deg:
                         # label_info_file.write('Ignoring: [' + self.cat_id2text_map[v] + '] \t\t\t degree: ['
                         # + str(len(edges)) + ']\n')
-                        ignored.append("Ignoring: deg [" + self.cat_id2text_map[v] + "] = [" + str(len(edges)) + "]\n")
+                        ignored.append("Ignoring: deg [" + self.cat_id2text_map[
+                            v] + "] = [" + str(len(edges)) + "]\n")
                         continue
                     for uv_tuple in edges:
                         edge = tuple(sorted(uv_tuple))
@@ -298,8 +356,9 @@ class Neighborhood_Graph:
             # Writing some statistics about the subgraph
             label_info_file.write(str(nx.info(sub_g)) + '\n')
             label_info_file.write('density: ' + str(nx.density(sub_g)) + '\n')
-            label_info_file.write('list of the frequency of each degree value [degree_histogram]: ' +
-                                  str(nx.degree_histogram(sub_g)) + '\n')
+            label_info_file.write(
+                'list of the frequency of each degree value [degree_histogram]: ' +
+                str(nx.degree_histogram(sub_g)) + '\n')
             for nodes in ignored:
                 label_info_file.write(str(nodes) + '\n')
             # subg_edgelist = nx.generate_edgelist(sub_g,label_graph_el)
@@ -308,10 +367,12 @@ class Neighborhood_Graph:
 
             subgraph_lists.append(sub_g)
 
-            logger.info('Sub graph generated at: [{0}]'.format(label_graph_filepath))
+            logger.info(
+                'Sub graph generated at: [{0}]'.format(label_graph_filepath))
 
             if root_node:
-                logger.info("Root node provided, will generate only one graph file.")
+                logger.info(
+                    "Root node provided, will generate only one graph file.")
                 break
 
         return subgraph_lists

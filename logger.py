@@ -18,7 +18,7 @@ __classes__     : ColoredFormatter
 import logging
 from json import dumps
 from os import makedirs
-from os.path import join, exists
+from os.path import join,exists
 import sys
 from copy import copy
 from datetime import datetime
@@ -28,11 +28,11 @@ from logging import Formatter
 LOG_FILE = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 MAPPING = {
-    'DEBUG': 37,  # white
-    'INFO': 36,  # cyan
-    'WARNING': 33,  # yellow
-    'ERROR': 31,  # red
-    'CRITICAL': 41,  # white on red bg
+    'DEBUG'   :37,  # white
+    'INFO'    :36,  # cyan
+    'WARNING' :33,  # yellow
+    'ERROR'   :31,  # red
+    'CRITICAL':41,  # white on red bg
 }
 
 PREFIX = '\033['
@@ -44,27 +44,101 @@ class ColoredFormatter(Formatter):
     Class to add color support for logging.
     """
 
-    def __init__(self, patern):
-        Formatter.__init__(self, patern)
+    def __init__(self,patern: str) -> None:
+        Formatter.__init__(self,patern)
 
-    def format(self, record):
+    def format(self,record):
         colored_record = copy(record)
         levelname = colored_record.levelname
-        seq = MAPPING.get(levelname, 37)  # default white
-        colored_levelname = '{0}{1}m{2}{3}'.format(PREFIX, seq, levelname, SUFFIX)
+        seq = MAPPING.get(levelname,37)  # default white
+        colored_levelname = '{0}{1}m{2}{3}'.format(PREFIX,seq,levelname,SUFFIX)
         colored_record.levelname = colored_levelname
-        return Formatter.format(self, colored_record)
+        return Formatter.format(self,colored_record)
 
 
-def create_logger(logger_name='root',
-                  log_filename=LOG_FILE,
-                  filepath='logs',
-                  file_level=logging.DEBUG,
-                  file_format="%(asctime)s [%(levelname)s %(funcName)s] (%(module)s:%(lineno)d) %(message)s",
-                  console_level=logging.DEBUG,
-                  console_format="[%(levelname)s] [%(module)s (%(lineno)d): %(funcName)s] %(message)s",
-                  color=True,
-                  ):
+def print_dict(data,count=5):
+    """
+    Prints the key and values of a Python dict.
+
+    :param data:
+    :param count:
+    """
+    i = 0
+    for k,v in data.items():
+        logger.debug("{} : {}".format(k,v))
+        i += 1
+        if i >= count:
+            break
+
+
+def print_json(json_data,s="",indent=4,sort_keys=True):
+    """
+    Pretty prints json data.
+
+    :param sort_keys:
+    :param indent:
+    :param s:
+    :param json_data:
+    """
+    logger.info("[{}] : {}".format(s,dumps(json_data,indent=indent,
+                                           sort_keys=sort_keys)))
+
+
+def get_date_time_tag(caller=False):
+    """
+
+    :param caller:
+    :return:
+    """
+    from datetime import datetime
+
+    date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    tag = str(date_time)
+    if caller:
+        tag = caller + "_" + str(date_time)
+    return tag
+
+
+def _test_colored_logger():
+    # Create top level logger
+    log = logging.getLogger("main")
+
+    # Add console handler using our custom ColoredFormatter
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    cf = ColoredFormatter(
+        "[%(name)s][%(levelname)s]  %(message)s (%(filename)s:%(lineno)d)")
+    ch.setFormatter(cf)
+    log.addHandler(ch)
+
+    # Add file handler
+    fh = logging.FileHandler('app.log')
+    fh.setLevel(logging.DEBUG)
+    ff = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(ff)
+    log.addHandler(fh)
+
+    # Set log level
+    log.setLevel(logging.DEBUG)
+
+    # Log some stuff
+    log.debug("app has started")
+    log.info("Logging to 'app.log' in the script dir")
+    log.warning("This is my last warning, take heed")
+    log.error("This is an error")
+    log.critical("He's dead, Jim")
+
+
+def create_logger(logger_name: str = 'root',
+                  log_filename: str = LOG_FILE,
+                  filepath: str = 'logs',
+                  file_level: int = logging.DEBUG,
+                  file_format: str = "%(asctime)s [%(levelname)s %(funcName)s] (%(module)s:%(lineno)d) %(message)s",
+                  console_level: int = logging.DEBUG,
+                  console_format: str = "[%(levelname)s] [%(module)s (%(lineno)d): %(funcName)s] %(message)s",
+                  color: bool = True,
+                  ) -> logging.Logger:
     """
     Creates logger with console and file printing.
 
@@ -82,7 +156,7 @@ def create_logger(logger_name='root',
         makedirs(filepath)
     logger = logging.getLogger(logger_name)
     logger.setLevel(file_level)
-    file_logger = FileHandler(join(filepath, log_filename + '.log'))
+    file_logger = FileHandler(join(filepath,log_filename + '.log'))
     file_logger.setLevel(file_level)
     file_logger.setFormatter(Formatter(file_format))
     logger.addHandler(file_logger)
@@ -97,72 +171,7 @@ def create_logger(logger_name='root',
     return logger
 
 
-def print_dict(data, count=5):
-    """
-    Prints the key and values of a Python dict.
-
-    :param data:
-    :param count:
-    """
-    i = 0
-    for k, v in data.items():
-        logger.debug("{} : {}".format(k, v))
-        i += 1
-        if i >= count:
-            break
-
-
-def print_json(json_data, s="", indent=4, sort_keys=True):
-    """
-    Pretty prints json data.
-
-    :param sort_keys:
-    :param indent:
-    :param s:
-    :param json_data:
-    """
-    logger.info("[{}] : {}".format(s, dumps(json_data, indent=indent, sort_keys=sort_keys)))
-
-
-def get_date_time_tag(caller=False):
-    from datetime import datetime
-    date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-    tag = str(date_time)
-    if caller:
-        tag = caller + "_" + str(date_time)
-    return tag
-
-
-def _test_colored_logger():
-    # Create top level logger
-    log = logging.getLogger("main")
-
-    # Add console handler using our custom ColoredFormatter
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    cf = ColoredFormatter("[%(name)s][%(levelname)s]  %(message)s (%(filename)s:%(lineno)d)")
-    ch.setFormatter(cf)
-    log.addHandler(ch)
-
-    # Add file handler
-    fh = logging.FileHandler('app.log')
-    fh.setLevel(logging.DEBUG)
-    ff = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(ff)
-    log.addHandler(fh)
-
-    # Set log level
-    log.setLevel(logging.DEBUG)
-
-    # Log some stuff
-    log.debug("app has started")
-    log.info("Logging to 'app.log' in the script dir")
-    log.warning("This is my last warning, take heed")
-    log.error("This is an error")
-    log.critical("He's dead, Jim")
-
-
-logger = create_logger(logger_name='MNXC.tools', log_filename='MNXC_' + LOG_FILE)
+logger = create_logger(logger_name='logger', log_filename=LOG_FILE)
 # DXMLclass_logger    = create_logger(logger_name='DXML.class')
 # util_logger         = create_logger(logger_name='DXML.util')
 
