@@ -41,8 +41,8 @@ class JSONLoader(torch.utils.data.Dataset):
     sample2cats   : OrderedDict of id to sample2cats.
     sample2cats = {"id1": [class_id_1,class_id_2],"id2": [class_id_2,class_id_10]}
 
-    cats : Dict of class texts.
-    cats = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
+    cattext2catid_map : Dict of class texts.
+    cattext2catid_map = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
 
     samples : {
         "txts":"",
@@ -74,8 +74,8 @@ class JSONLoader(torch.utils.data.Dataset):
         :param specials: Characters to clean from txts.
         :param json_path: Path to raw json file.
         :param encoding: Encoding for the raw json file.
-        :return: txts, sample2cats, cats, no_cat_ids
-            no_cat_ids: ids for which no cats were found.
+        :return: txts, sample2cats, cattext2catid_map, no_cat_ids
+            no_cat_ids: ids for which no categories were found.
         """
         import ast  # As the data is not proper JSON (single-quote instead of double-quote) format, "json" library will not work.
         from unidecode import unidecode
@@ -116,7 +116,7 @@ class JSONLoader(torch.utils.data.Dataset):
                     no_cat_ids.append(line_dict["asin"])
 
         File_Util.save_json(no_cat_ids,self.dataset_name + "_no_cat_ids",filepath=self.dataset_dir)
-        logger.info("Number of txts: [{}], sample2cats: [{}] and cats: [{}]."
+        logger.info("Number of txts: [{}], sample2cats: [{}] and cattext2catid_map: [{}]."
                     .format(len(txts),len(classes),len(cats)))
         return txts, classes, cats
 
@@ -140,7 +140,7 @@ class JSONLoader(torch.utils.data.Dataset):
 
     def get_cats(self) -> dict:
         """
-        Function to get the entire set of cats
+        Function to get the entire set of cattext2catid_map
         """
         return self.cats
 

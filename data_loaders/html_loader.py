@@ -40,8 +40,8 @@ class HTMLLoader(torch.utils.data.Dataset):
     sample2cats   : OrderedDict of id to classes.
     sample2cats = {"id1": [class_id_1,class_id_2],"id2": [class_id_2,class_id_10]}
 
-    cats : Dict of class texts.
-    cats = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
+    cattext2catid_map : Dict of class texts.
+    cattext2catid_map = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
 
     samples : {
         "txts":"",
@@ -69,9 +69,9 @@ class HTMLLoader(torch.utils.data.Dataset):
         self.txts,self.classes,self.cats = self.gen_dicts()
 
     def gen_dicts(self):
-        """Filters txts, sample2cats and cats from wikipedia text.
+        """Filters txts, sample2cats and cattext2catid_map from wikipedia text.
 
-        :return: Dict of txts, sample2cats and cats filtered from samples.
+        :return: Dict of txts, sample2cats and cattext2catid_map filtered from samples.
         """
 
         if isdir(self.raw_txt_dir):
@@ -107,7 +107,7 @@ class HTMLLoader(torch.utils.data.Dataset):
                     else:  ## Create entry for doc_id if does not exist.
                         classes[doc_id] = [cats[lbl]]
             else:  ## If no category was found, store the doc_id in a separate place for later inspection.
-                logger.warn("No cats found in document: [{}].".format(doc_id))
+                logger.warn("No categories found in document: [{}].".format(doc_id))
                 no_cat_ids.append(doc_id)
 
             ## Shall we use hidden category information?
@@ -121,12 +121,12 @@ class HTMLLoader(torch.utils.data.Dataset):
                         hid_classes[doc_id].append(hid_cats[lbl])
                     else:  ## Create entry for doc_id if does not exist.
                         hid_classes[doc_id] = [hid_cats[lbl]]
-        logger.warn("No cats found for: [{}] documents. Storing ids for reference in file '_no_cat_ids'."
+        logger.warn("No cattext2catid_map found for: [{}] documents. Storing ids for reference in file '_no_cat_ids'."
                     .format(len(no_cat_ids)))
         File_Util.save_json(hid_classes,self.dataset_name + "_hid_classes",filepath=self.dataset_dir)
         File_Util.save_json(hid_cats,self.dataset_name + "_hid_cats",filepath=self.dataset_dir)
         File_Util.save_json(no_cat_ids,self.dataset_name + "_no_cat_ids",filepath=self.dataset_dir)
-        logger.info("Number of txts: [{}], sample2cats: [{}] and cats: [{}]."
+        logger.info("Number of txts: [{}], sample2cats: [{}] and cattext2catid_map: [{}]."
                     .format(len(txts),len(classes),len(cats)))
         return txts,classes,cats
 
@@ -239,7 +239,7 @@ class HTMLLoader(torch.utils.data.Dataset):
 
     def get_cats(self) -> dict:
         """
-        Function to get the entire set of cats
+        Function to get the entire set of cattext2catid_map
         """
         return self.cats
 

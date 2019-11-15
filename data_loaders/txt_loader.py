@@ -38,8 +38,8 @@ class TXTLoader(torch.utils.data.Dataset):
     sample2cats   : OrderedDict of id to sample2cats.
     sample2cats = {"id1": [class_id_1,class_id_2],"id2": [class_id_2,class_id_10]}
 
-    cats : Dict of class texts.
-    cats = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
+    cattext2catid_map : Dict of class texts.
+    cattext2catid_map = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
 
     samples : {
         "txts":"",
