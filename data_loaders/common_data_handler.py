@@ -69,7 +69,36 @@ class Common_Data_Handler:
         self.txts_test,self.sample2cats_test,self.cats_test = None,None,None
         self.txts_val,self.sample2cats_val,self.cats_val = None,None,None
 
-    def gen_data_stats(self,txts: dict = None,classes: dict = None,categories: dict = None):
+    def multilabel2multiclass_df(self,df: pd.DataFrame):
+        """Converts Multi-Label data in DataFrame format to Multi-Class data by replicating the samples.
+
+        :param df: Dataframe containing repeated sample id and it's associated category.
+        :returns: DataFrame with replicated samples.
+        """
+        if self.catid2cattxt_map is None:
+            self.catid2cattxt_map = File_Util.load_json(filename=self.dataset_name
+                                                        + "_catid2cattxt_map",
+                                                        filepath=self.dataset_dir)
+        idxs,cat = [],[]
+        for row in df.values:
+            lbls = row[3][1:-1].split(',')  ## When DataFrame is saved as csv, list is converted to str
+            for lbl in lbls:
+                lbl = lbl.strip()
+                idxs.append(row[1])
+                cat.append(lbl)
+
+        df = pd.DataFrame.from_dict({"idx"    :idxs,
+                                     "cat"    :cat})
+        df = df[~df['cat'].isna()]
+        df.to_csv(path_or_buf=join(self.dataset_dir,
+                                   self.dataset_name + "_multiclass_df.csv"))
+
+        logger.info("Data shape = {} ".format(df.shape))
+
+        return df
+
+    def gen_data_stats(self,txts: dict = None,sample2cats: dict = None,
+                       cats: dict = None):
         """ Generates statistics about the data.
 
         Like:
@@ -149,17 +178,31 @@ class Common_Data_Handler:
             txts,classes,categories = None,None,None  # Remove large dicts and free up memory.
             collect()
 
-            File_Util.save_json(self.txts_test,self.dataset_name + "_txts_test",filepath=self.dataset_dir)
-            File_Util.save_json(self.sample2cats_test,self.dataset_name + "_sample2cats_test",filepath=self.dataset_dir)
-            File_Util.save_json(self.txts_val,self.dataset_name + "_txts_val",filepath=self.dataset_dir)
-            File_Util.save_json(self.sample2cats_val,self.dataset_name + "_sample2cats_val",filepath=self.dataset_dir)
-            File_Util.save_json(self.txts_train,self.dataset_name + "_txts_train",filepath=self.dataset_dir)
-            File_Util.save_json(self.sample2cats_train,self.dataset_name + "_sample2cats_train",
+            File_Util.save_json(self.txts_test,self.dataset_name + "_txts_test",
                                 filepath=self.dataset_dir)
-            File_Util.save_json(self.cats_sel,self.dataset_name + "_cats_train",filepath=self.dataset_dir)
-            File_Util.save_json(self.cats_val,self.dataset_name + "_cats_val",filepath=self.dataset_dir)
-            File_Util.save_json(self.cats_test,self.dataset_name + "_cats_test",filepath=self.dataset_dir)
-            File_Util.save_json(catid2cattxt_map,self.dataset_name + "_catid2cattxt_map",filepath=self.dataset_dir)
+            File_Util.save_json(self.sample2cats_test,
+                                self.dataset_name + "_sample2cats_test",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.txts_val,self.dataset_name + "_txts_val",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.sample2cats_val,
+                                self.dataset_name + "_sample2cats_val",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.txts_train,
+                                self.dataset_name + "_txts_train",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.sample2cats_train,
+                                self.dataset_name + "_sample2cats_train",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.cats_sel,self.dataset_name + "_cats_train",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.cats_val,self.dataset_name + "_cats_val",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(self.cats_test,self.dataset_name + "_cats_test",
+                                filepath=self.dataset_dir)
+            File_Util.save_json(catid2cattxt_map,
+                                self.dataset_name + "_catid2cattxt_map",
+                                filepath=self.dataset_dir)
             return self.txts_train,self.sample2cats_train,self.cats_sel,self.txts_val,self.sample2cats_val,\
                    self.cats_val,self.txts_test,self.sample2cats_test,self.cats_test
 
@@ -284,13 +327,19 @@ class Common_Data_Handler:
             self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_val()
         elif load_type == "test":
             self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_test()
-        else:
+        elif load_type == "all":
             self.txts_sel,self.sample2cats_sel,self.cats_sel = self.load_all()
+        else:
+            raise Exception("Unsupported load_type: [{}]. \n"
+                            "Available options: ['all (Default)','train','val','test']"
+                            .format(load_type))
         # self.gen_data_stats(self.txts_sel, self.sample2cats_sel, self.cats_sel)
+        df = self.json2csv(self.txts_sel,self.sample2cats_sel)
         if calculate_idf:
-            idf_dict = self.clean.calculate_idf_per_token(txts=list(self.txts_sel.values()))
-            return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats,idf_dict
-        return self.txts_sel,self.sample2cats_sel,self.cats_sel,self.cats
+            idf_dict = self.clean.calculate_idf_per_token(
+                txts=list(self.txts_sel.values()))
+            return df,self.cattext2catid_map,idf_dict
+        return df,self.cattext2catid_map
 
     def load_categories(self) -> OrderedDict:
         """Loads and returns the whole categories set."""
@@ -529,8 +578,6 @@ class Common_Data_Handler:
         :param txts_all:
         :param sample2cats_all:
         """
-        import pandas as pd
-
         if exists(join(self.dataset_dir,self.dataset_name + "_df.csv")):
             df = pd.read_csv(filepath_or_buffer=join(self.dataset_dir,self.dataset_name + "_df.csv"))
             df = df[~df['txts'].isna()]
@@ -654,11 +701,16 @@ def main():
     # save_dir = join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"],
     #                 config["data"]["dataset_name"] + "_pointer")
 
-    common_handler = Common_Data_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
-                                         dataset_name=config["data"]["dataset_name"],
-                                         dataset_dir=config["paths"]["dataset_dir"][plat][user])
-    df = common_handler.json2csv()
-    logger.debug(df.head())
+    common_handler = Common_Data_Handler(
+        dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+        dataset_name=config["data"]["dataset_name"],
+        dataset_dir=config["paths"]["dataset_dir"][plat][user])
+    # df = common_handler.json2csv()
+
+    df = pd.read_csv(filepath_or_buffer=join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"],
+                                                     config["data"]["dataset_name"] + "_df.csv"))
+    multiclass_df = common_handler.multilabel2multiclass_df(df)
+    logger.debug(multiclass_df.head())
     # txts_new,sample2cats_new,cats_new = common_handler.create_new_data(new_data_name="_fewshot",save_dir=save_dir)
     # logger.debug(len(txts_new))
     # logger.debug(len(sample2cats_new))
